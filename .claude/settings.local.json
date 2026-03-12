@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/sanindo/webflow-mcp-test/.git 2>/dev/null; git -C /Users/sanindo/webflow-mcp-test status 2>&1)",
+      "Bash(git -C /Users/sanindo/webflow-mcp-test rev-parse --git-dir 2>&1 && git -C /Users/sanindo/webflow-mcp-test remote -v 2>&1)",
+      "Bash(git -C /Users/sanindo/webflow-mcp-test show HEAD --stat 2>&1)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developers.webflow.com)",
+      "mcp__plugin_compound-engineering_context7__resolve-library-id",
+      "mcp__plugin_compound-engineering_context7__query-docs",
+      "WebFetch(domain:developers.figma.com)",
+      "WebFetch(domain:help.figma.com)",
+      "WebFetch(domain:playwright.dev)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:www.karpi.studio)",
+      "Bash(git checkout:*)",
+      "Bash(pnpm init:*)",
+      "Bash(pnpm create:*)",
+      "Bash(pnpm add:*)",
+      "Bash(git -C /Users/sanindo/webflow-mcp-test rev-parse --show-toplevel)",
+      "Bash(git init:*)"
+    ]
+  }
+}

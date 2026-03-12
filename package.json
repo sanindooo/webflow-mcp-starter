@@ -1,0 +1,18 @@
+{
+  "name": "webflow-mcp-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:capture": "npx playwright test --grep 'capture'",
+    "test:regression": "npx playwright test --grep 'regression'",
+    "test:update-baseline": "npx playwright test --update-snapshots"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}
