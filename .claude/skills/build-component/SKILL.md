@@ -37,8 +37,7 @@ allowed-tools:
   - "Write(/Users/sanindo/webflow-mcp-test/test-results/**)"
   - "Write(/Users/sanindo/webflow-mcp-test/docs/**)"
   - "Write(/Users/sanindo/webflow-mcp-test/tests/**)"
-  - "Write(/Users/sanindo/webflow-mcp-test/scripts/**)"
-  - "Edit(/Users/sanindo/webflow-mcp-test/scripts/**)"
+  - "Read(/Users/sanindo/webflow-mcp-test/scripts/manifest.json)"
   - Glob
   - Grep
   - Agent

@@ -8,8 +8,7 @@
     "test:regression": "npx playwright test --grep 'regression'",
     "test:update-baseline": "npx playwright test --update-snapshots",
     "setup": "npx playwright install chromium",
-    "dev": "npx http-server scripts/ -p 3000 --cors -c-1",
-    "release": "git tag $npm_config_tag && git push --tags"
+    "dev": "npx http-server scripts/ -p 3000 --cors -c-1 -a 127.0.0.1"
   },
   "keywords": ["webflow", "figma", "mcp", "claude-code", "automation", "playwright"],
   "license": "MIT",

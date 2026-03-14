@@ -9,7 +9,7 @@
       "name": "animations",
       "path": "scripts/global/animations.js",
       "description": "Shared scroll-reveal and fade-in animations using GSAP ScrollTrigger",
-      "attributes": { "defer": true }
+      "integrity": "sha384-80GbXUtXfmxcb1fpof2Dxj1fIEE7fPiX+zd4YzUQLPlMPyisRGI9sAGNVY7oGIvA"
     }
   ],
   "components": {}

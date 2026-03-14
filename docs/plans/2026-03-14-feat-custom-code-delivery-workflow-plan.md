@@ -51,14 +51,14 @@ scripts/
       "name": "animations",
       "path": "scripts/global/animations.js",
       "description": "Shared scroll-reveal and fade-in animations",
-      "attributes": { "defer": true }
+      "integrity": "sha384-{hash}"
     }
   ],
   "components": {
     "two-img-imba": {
       "path": "scripts/components/two-img-imba.js",
       "description": "Image parallax effect unique to this component",
-      "attributes": { "defer": true }
+      "integrity": "sha384-{hash}"
     }
   }
 }
@@ -67,7 +67,7 @@ scripts/
 - `version` — current semver tag; all jsDelivr URLs use this tag
 - `global` — array of scripts injected site-wide via Webflow Project Settings
 - `components` — map of component name → script metadata; injected per-page
-- `attributes` — script tag attributes (`defer`, `async`, custom data attributes)
+- `integrity` — SRI hash (sha384) for subresource integrity verification
 
 **Resolved URL formula:** `https://cdn.jsdelivr.net/gh/{user}/{repo}@{version}/{path}`
 
@@ -175,7 +175,7 @@ When the pipeline injects a component script tag, it must not create duplicates 
 
 ### Security
 - No API keys or secrets in scripts (this is a public repo)
-- Consider adding Subresource Integrity (SRI) hashes to script tags in a future iteration
+- SRI (Subresource Integrity) is mandatory — every script tag includes `integrity="sha384-..."` and `crossorigin="anonymous"`. Hashes are stored in `manifest.json` and generated at release time.
 - Scripts should not use `eval()` or `document.write()`
 
 ## Acceptance Criteria
