@@ -16,5 +16,8 @@ Thumbs.db
 *.swp
 *.swo
 
+# Exported Figma assets (local storage, not committed)
+assets/
+
 # Claude Code local settings (user-specific)
 .claude/settings.local.json

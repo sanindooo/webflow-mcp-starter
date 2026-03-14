@@ -10,13 +10,16 @@ See `docs/reference/style-guide.md` for what the style guide must contain.
 
 ## Pipeline Loop
 
-1. **Verify** — Confirm `/style-guide` page exists with foundational styles, variables, and classes
-2. **Sync Tokens** — Extract Figma tokens and update Webflow variables + styles to match
-3. **Read** — Figma MCP extracts component design specs
-4. **Build** — Webflow MCP creates elements with correct structure and classes
-5. **Capture** — Playwright screenshots the live Webflow page
-6. **Compare** — Claude vision compares Figma reference vs Webflow screenshot
-7. **Iterate** — Fix issues via Webflow MCP, re-capture, re-compare (max 5x)
+1. **Export Assets** — `/export-assets` extracts images, icons, logos from Figma via REST API
+2. **Verify** — Confirm `/style-guide` page exists with foundational styles, variables, and classes
+3. **Sync Tokens** — Extract Figma tokens and update Webflow variables + styles to match
+4. **Upload Assets** — Upload exported assets to Webflow asset library via Data API
+5. **Read** — Figma MCP extracts component design specs
+6. **Build** — Webflow MCP creates elements with correct structure and classes (using asset URLs from manifest)
+7. **Capture** — Playwright screenshots the live Webflow page
+8. **Compare** — Claude vision compares Figma reference vs Webflow screenshot
+9. **Iterate** — Fix issues via Webflow MCP, re-capture, re-compare (max 5x)
+10. **Post-build** — `/asset-metadata` for alt text, `/update-seo` for page SEO
 
 ## Class Naming Conventions (Client-First adapted)
 
@@ -65,6 +68,29 @@ Managed via Webflow's `variable_tool`. The Relume starter template ships with it
 - `button-function` / `button-function-arg1` / `button-function-arg2` — button behavior
 - `data-eapps-font-size` / `data-eapps-line-height` — responsive font scaling
 
+## Asset Pipeline
+
+Images, icons, and logos are exported from Figma and uploaded to Webflow via REST API scripts in `scripts/api/`. The pipeline is tracked by `assets/asset-manifest.json`.
+
+### Workflow
+1. `pnpm run export-assets <fileKey> <nodeId>` — exports from Figma to `assets/`
+2. `pnpm run upload-assets` — uploads to Webflow asset library (dedup by MD5 hash)
+3. `pnpm run update-metadata --dry-run` — audit assets missing alt text
+4. Build-component reads `webflowUrl` from manifest when setting image sources
+
+### Skills
+- `/export-assets` — full Figma export + Webflow upload combo
+- `/asset-metadata` — generate alt text via Claude vision
+- `/update-seo` — generate page titles, descriptions, Open Graph tags
+
+### API Tokens
+- `FIGMA_API_TOKEN` — Personal access token, expires every 90 days. Scope: `file_content:read`
+- `WEBFLOW_API_TOKEN` — Site or workspace API token
+- `WEBFLOW_SITE_ID` — Found in Site Settings > General
+
+### Precise Style Extraction
+`pnpm run extract-styles <fileKey> <nodeId>` — outputs exact CSS values (in rem) from Figma nodes. Use when the MCP's Tailwind approximation doesn't match the design.
+
 ## Custom Code Delivery
 
 All custom JS lives in `scripts/` (global + per-component), served via **jsDelivr CDN** from GitHub release tags, injected into Webflow via `/custom-code-management` skill. See `.claude/skills/custom-code-management/SKILL.md` for full workflow. Registry: `scripts/manifest.json`. Local dev: `pnpm dev` (port 3000).
@@ -95,7 +121,7 @@ All custom JS lives in `scripts/` (global + per-component), served via **jsDeliv
 ## Webflow MCP Notes
 - Element Builder limited to 3 nesting levels per operation — use multiple sequential operations for deeper structures
 - Designer API requires Webflow Designer open + companion app running
-- Images must be pre-uploaded to Webflow asset library (MCP can't upload)
+- Images uploaded via `/export-assets` skill or `pnpm run upload-assets` (MCP can't upload directly)
 - Publish via `sites-publish` after building, then wait before screenshotting
 
 ### MCP Limitations (what it CANNOT do)
