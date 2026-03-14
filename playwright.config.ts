@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   use: {
-    baseURL: 'https://stephens-mcp-test.webflow.io',
+    baseURL: process.env.WEBFLOW_SITE_URL || 'https://your-site.webflow.io',
     viewport: { width: 1440, height: 900 },
   },
   expect: {
