@@ -19,5 +19,8 @@ Thumbs.db
 # Exported Figma assets (local storage, not committed)
 assets/
 
+# Client copy documents (confidential)
+docs/examples/
+
 # Claude Code local settings (user-specific)
 .claude/settings.local.json

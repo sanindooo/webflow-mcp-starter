@@ -17,7 +17,7 @@
     gsap.registerPlugin(ScrollTrigger)
 
     // Fade-in on scroll for elements with data-animation-general
-    var elements = document.querySelectorAll('[data-animation-general]')
+    const elements = document.querySelectorAll('[data-animation-general]')
 
     elements.forEach(function (el) {
       gsap.from(el, {
