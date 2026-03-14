@@ -1,7 +1,8 @@
 ---
 title: "feat: Add style guide generation on initialisation"
 type: feat
-status: active
+status: superseded
+superseded_by: docs/plans/2026-03-14-feat-relume-style-guide-integration-plan.md
 date: 2026-03-14
 brainstorm: docs/brainstorms/2026-03-14-style-guide-generation-brainstorm.md
 ---

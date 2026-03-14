@@ -1,8 +1,14 @@
-# Style Guide — Default Token Reference
+# Style Guide — Token Reference
 
-Fallback token definitions for the style guide generation phase (Phase 2.5 of `/build-component`). Used when no Figma style guide frame exists.
+Token definitions for the style guide sync phase (Phase 2.5 of `/build-component`).
 
-When a Figma file contains a "Style Guide" frame, tokens are extracted from Figma instead and these defaults are ignored.
+## Template Approach
+
+Every Webflow project starts from a Relume-based style guide template. This template provides elements the MCP cannot create programmatically (rich text blocks with styled children, real form inputs, checkboxes, radios, toggles). The automation **syncs tokens** from Figma into the existing template rather than building from scratch.
+
+**The Relume template may ship with its own variable collections and class names.** Always inventory existing variables/styles first and update them rather than creating duplicates.
+
+When a Figma file contains a "Style Guide" frame, tokens are extracted from Figma and override the defaults below. When no Figma style guide is available (or Figma is rate-limited), these defaults are used as fallback.
 
 ---
 
@@ -78,13 +84,13 @@ All text styles use `color` from the `color-neutral-700` variable.
 
 | Variable Name | Value | Purpose |
 |---|---|---|
-| `spacing-xxl` | 128px | Hero sections |
-| `spacing-xl` | 80px | Section padding (maps to `padding-section-xl`) |
-| `spacing-lg` | 64px | Large gaps |
-| `spacing-md` | 40px | Medium gaps |
-| `spacing-sm` | 24px | Small gaps |
-| `spacing-xs` | 16px | Tight gaps |
-| `spacing-xxs` | 8px | Minimal gaps |
+| `spacing-xxl` | 8rem | Hero sections |
+| `spacing-xl` | 5rem | Section padding |
+| `spacing-lg` | 4rem | Large gaps |
+| `spacing-md` | 2.5rem | Medium gaps |
+| `spacing-sm` | 1.5rem | Small gaps |
+| `spacing-xs` | 1rem | Tight gaps |
+| `spacing-xxs` | 0.5rem | Minimal gaps |
 
 Responsive scaling follows `breakpoints.md` percentages:
 - `medium`: 75-80% of `main`
@@ -95,89 +101,162 @@ Responsive scaling follows `breakpoints.md` percentages:
 
 ## Button Styles
 
-### Variants
+Uses a base `.button` class with combo modifier classes for variants.
 
-| Class | Background | Border | Text Color | Padding (top/bottom) | Padding (left/right) | Border-Radius |
-|---|---|---|---|---|---|---|
-| `button-primary` | `color-accent` var | none | `color-neutral-0` var | 12px | 24px | 8px |
-| `button-secondary` | `color-neutral-100` var | 1px solid `color-neutral-300` var | `color-neutral-900` var | 12px | 24px | 8px |
-| `button-ghost` | transparent | none | `color-accent` var | 12px | 24px | 8px |
-| `button-outline` | transparent | 1px solid `color-accent` var | `color-accent` var | 12px | 24px | 8px |
+### Base Class: `button`
 
-All buttons share: `font-weight: 600`, `font-size: 1rem`, `cursor: pointer`, `text-decoration: none`.
+All shared properties: `font-weight: 600`, `font-size: 1rem`, `cursor: pointer`, `text-decoration: none`, `display: inline-block`, `padding: 0.75rem 1.5rem`, `border-radius: 0.5rem`.
+
+Default appearance (primary): `background-color` → `color-accent` var, `color` → `color-neutral-0` var.
+
+### Combo Modifiers
+
+| Combo Class | Overrides |
+|---|---|
+| `button` (alone) | Primary — accent bg, white text |
+| `button` + `is-secondary` | neutral-100 bg, neutral-900 text, 1px solid neutral-300 border |
+| `button` + `is-ghost` | transparent bg, accent text, keeps padding |
+| `button` + `is-outline` | transparent bg, accent text, 1px solid accent border |
+| `button` + `is-link` | No bg, no border, no padding — bare text link (from Relume) |
+| `button` + `is-text` | Inline-block, no decoration (from Relume) |
+| `button` + `is-small` | Reduced padding 0.5rem/1.25rem (from Relume) |
+| `button` + `is-icon` | Flex with 0.75rem gap for icon + text (from Relume) |
+| `button` + `is-alternate` | Inverted colours for dark backgrounds (from Relume) |
 
 ### Hover States (pseudo: "hover")
 
-| Class | Hover Change |
+| Variant | Hover Change |
 |---|---|
-| `button-primary` | `opacity: 0.85` |
-| `button-secondary` | `background-color` → `color-neutral-300` var |
-| `button-ghost` | `opacity: 0.7` |
-| `button-outline` | `background-color` → `color-accent` var, `color` → `color-neutral-0` var |
+| `button` (primary) | `opacity: 0.85` |
+| `is-secondary` | `background-color` → `color-neutral-300` var |
+| `is-ghost` | `opacity: 0.7` |
+| `is-outline` | `background-color` → `color-accent` var, `color` → `color-neutral-0` var |
 
 ### Responsive (tablet/mobile)
 
-All buttons get `min-height: 44px` at `medium`, `small`, and `tiny` breakpoints (WCAG 2.1 touch target requirement).
+All buttons get `min-height: 2.75rem` (44px) at `medium` breakpoint (WCAG 2.1 touch target requirement).
 
 ---
 
-## Style Guide Page Structure
+## Style Guide Page
 
-When Phase 2.5 creates the Style Guide page in Webflow:
+### Source
 
-- **Page title:** "Style Guide"
-- **Slug:** `/style-guide`
-- **Hidden from nav / excluded from sitemap**
+The Style Guide page is **cloned from a Relume-based template** — not generated from scratch. The template provides elements the MCP cannot create programmatically:
 
-### Page Layout
+- Rich text blocks with styled children (All H2s, All Paragraphs, All Links, etc.)
+- Real form elements (FormInput, FormTextarea, FormSelect, checkboxes, radios, toggles)
+- Pre-configured rich text nested styling
+- Properly structured colour swatches, typography samples, and button variants
 
-```
-<section> sg_section + padding-global
-  <div> container-xl
-    <article> sg_component
+### What the automation does
 
-      <header> sg_header
-        <h1> "Style Guide" + heading-style-h1
+Phase 2.5 **syncs tokens** into the template:
+1. Updates existing variable collections with Figma-extracted (or fallback) colour/spacing values
+2. Updates existing typography and button styles to match the design system
+3. Verifies all foundational classes exist
 
-      <!-- Colours Section -->
-      <div> sg_section-block
-        <h2> "Colours" + heading-style-h2
-        <div> sg_colour-grid
-          (one swatch per colour variable: div with background + label)
+### What requires manual work
 
-      <!-- Typography Section -->
-      <div> sg_section-block
-        <h2> "Typography" + heading-style-h2
-        <div> sg_type-samples
-          <h1> "Heading 1" + heading-style-h1
-          <h2> "Heading 2" + heading-style-h2
-          <h3> "Heading 3" + heading-style-h3
-          <h4> "Heading 4" + heading-style-h4
-          <h5> "Heading 5" + heading-style-h5
-          <h6> "Heading 6" + heading-style-h6
-          <p> "Large body text..." + text-size-large
-          <p> "Medium body text..." + text-size-medium
-          <p> "Small body text..." + text-size-small
+- Styling rich text children (nested element types within a RichText block)
+- Creating real form elements (must come from the template)
+- Any element types the MCP can't create (see CLAUDE.md → MCP Limitations)
 
-      <!-- Buttons Section -->
-      <div> sg_section-block
-        <h2> "Buttons" + heading-style-h2
-        <div> sg_button-grid
-          <a> "Primary Button" + button-primary
-          <a> "Secondary Button" + button-secondary
-          <a> "Ghost Button" + button-ghost
-          <a> "Outline Button" + button-outline
-```
+### Expected sections
 
-### Class Naming
+The style guide page should contain at minimum:
+- **Colours** — swatches for all colour variables
+- **Typography** — heading samples (h1-h6) and body text (large, medium, small)
+- **Buttons** — primary, secondary, ghost, outline using `button` + combo classes
+- **Form Inputs** — text input, textarea, select, with labels and helper/error text
+- **Rich Text** — a rich text block with styled children demonstrating content hierarchy
 
-All Style Guide page classes use the `sg_` prefix:
-- `sg_section` — outer section wrapper
-- `sg_component` — main article wrapper
-- `sg_header` — page header
-- `sg_section-block` — content block for each category
-- `sg_colour-grid` — grid layout for colour swatches
-- `sg_colour-swatch` — individual swatch wrapper
-- `sg_colour-label` — swatch text label
-- `sg_type-samples` — vertical stack of typography samples
-- `sg_button-grid` — horizontal layout for button samples
+### Relume template variables
+
+The Relume starter ships with its own variable collections. The automation must:
+1. **Inventory** existing Relume variables before creating new ones
+2. **Map** Relume names to project convention names
+3. **Update** existing variables with project tokens rather than creating duplicates
+
+---
+
+## Relume Template Mapping
+
+Reference tables for Phase 2.5 token sync. The Relume starter template (v3) ships with 4 variable collections and ~465 styles. The automation uses these tables to decide what to update vs create.
+
+### Variable Mapping
+
+#### Primitives -> Project Colours
+
+| Relume Primitive | Relume Default | Project Variable | Project Value |
+|---|---|---|---|
+| `neutral-white` | #fff | `color-neutral-0` | #FFFFFF |
+| `neutral-shade-1` | #eee | `color-neutral-100` | #F5F5F5 |
+| `neutral-shade-2` | #ccc | `color-neutral-300` | #CCCCCC |
+| `neutral-shade-3` | #aaa | (keep as primitive) | -- |
+| `neutral-shade-4` | #666 | `color-neutral-500` | #666666 |
+| `neutral-shade-5` | #444 | `color-neutral-700` | #333333 |
+| `neutral-shade-6` | #222 | (keep as primitive) | -- |
+| `neutral-shade-7` | black | `color-neutral-900` | #111111 |
+
+Relume shade-3 (#aaa) and shade-6 (#222) have no project equivalent. They remain as Relume primitives for internal color-scheme references.
+
+#### Variables to Create (not in Relume)
+
+| Variable | Collection | Type | Default |
+|---|---|---|---|
+| `color-primary` | Colors | color | #1A1A2E |
+| `color-secondary` | Colors | color | #16213E |
+| `color-accent` | Colors | color | #0F3460 |
+| `color-success` | Colors | color | #22C55E |
+| `color-error` | Colors | color | #EF4444 |
+| `color-warning` | Colors | color | #F59E0B |
+| `color-info` | Colors | color | #3B82F6 |
+| `spacing-xxl` | Spacing | size | 8rem |
+| `spacing-xl` | Spacing | size | 5rem |
+| `spacing-lg` | Spacing | size | 4rem |
+| `spacing-md` | Spacing | size | 2.5rem |
+| `spacing-sm` | Spacing | size | 1.5rem |
+| `spacing-xs` | Spacing | size | 1rem |
+| `spacing-xxs` | Spacing | size | 0.5rem |
+
+#### Relume Variables to Update
+
+| Variable | Relume Default | Update To |
+|---|---|---|
+| `font-style-heading` | system-ui | (project font from Figma) |
+| `font-style-body` | system-ui | (project font from Figma) |
+| `radius-large` | 0px | (project value from Figma) |
+| `radius-medium` | 0px | (project value from Figma) |
+| `radius-small` | 0px | (project value from Figma) |
+
+### Style Mapping
+
+| Relume Style | Project Convention | Action |
+|---|---|---|
+| `heading-style-h1` through `h6` | Same names | Update values from Figma |
+| `text-size-large` | Same name | Update value |
+| `text-size-medium` | Same name (1.125rem -> 1rem) | Update value |
+| `text-size-regular` | Keep (Relume extra) | Keep as-is |
+| `text-size-small` | Same name | Update value |
+| `text-size-tiny` | Skip | Leave as-is |
+| `text-weight-*` | Adopt all (xbold, bold, semibold, medium, normal, light) | Keep as-is |
+| `text-align-*` | Adopt all (left, center, right) | Keep as-is |
+| `text-style-*` | Skip | Leave as-is |
+| `button` | Same name | Update values |
+| `is-secondary` | Same name | Update colours |
+| `is-link` | Keep (Relume) | Keep as-is |
+| `is-text` | Keep (Relume) | Keep as-is |
+| `is-small` | Adopt | Keep as-is |
+| `is-icon` | Adopt | Keep as-is |
+| `is-alternate` | Adopt | Keep as-is |
+| (new) `is-ghost` | Create | New combo class |
+| (new) `is-outline` | Create | New combo class |
+| `padding-global` | Same name (5% -> 2rem) | Update value |
+| `padding-section-large` | Same name (7rem) | Update responsive breakpoints |
+| `padding-section-medium` | Same name (5rem) | Update responsive breakpoints |
+| `padding-section-small` | Same name (3rem) | Update responsive breakpoints |
+| `container-large` | Keep + add `container-xl` alias | Keep |
+| `container-medium` | Keep | Keep as-is |
+| `container-small` | Keep | Keep as-is |
+| `form_*` | Same pattern | Update via variable sync |

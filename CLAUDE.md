@@ -2,14 +2,21 @@
 
 This project automates Figma-to-Webflow website building with visual verification via Playwright.
 
+## Prerequisites
+
+**Style Guide page required.** Every Webflow project must have a `/style-guide` page with foundational styles before any component building begins. This page is cloned from the Relume starter template (or a minimal derivative) and then customised with project-specific tokens. The automation **verifies** the style guide exists and **updates variables/styles** to match the Figma design — it does NOT create the page from scratch.
+
+See `docs/reference/style-guide.md` for what the style guide must contain.
+
 ## Pipeline Loop
 
-1. **Read** — Figma MCP extracts design specs
-2. **Style Guide** — Auto-generate foundational styles, variables, and Style Guide page (Phase 2.5, runs once per site)
-3. **Build** — Webflow MCP creates elements with correct structure and classes
-4. **Capture** — Playwright screenshots the live Webflow page
-5. **Compare** — Claude vision compares Figma reference vs Webflow screenshot
-6. **Iterate** — Fix issues via Webflow MCP, re-capture, re-compare (max 5x)
+1. **Verify** — Confirm `/style-guide` page exists with foundational styles, variables, and classes
+2. **Sync Tokens** — Extract Figma tokens and update Webflow variables + styles to match
+3. **Read** — Figma MCP extracts component design specs
+4. **Build** — Webflow MCP creates elements with correct structure and classes
+5. **Capture** — Playwright screenshots the live Webflow page
+6. **Compare** — Claude vision compares Figma reference vs Webflow screenshot
+7. **Iterate** — Fix issues via Webflow MCP, re-capture, re-compare (max 5x)
 
 ## Class Naming Conventions (Client-First adapted)
 
@@ -19,21 +26,25 @@ This project automates Figma-to-Webflow website building with visual verificatio
 - **Modifiers:** `is-` prefix (e.g., `is-2`, `is-animated`, `is-link`, `is-decor`)
 
 ### Utility Classes
-- Layout: `container-xl`, `padding-global` (2rem fixed horizontal padding), `padding-section-xl` (vertical section padding, responsive)
-- **padding-global** uses **fixed 2rem** left/right (NOT 5% percentage). Applied to the wrapper div inside sections.
-- **padding-section-xl** provides vertical padding (112px desktop → 80px tablet → 56px mobile → 40px tiny). Applied as a combo class on the same element as padding-global.
-- Typography: `heading-style-h1` through `heading-style-h6`, `text-size-large`, `text-size-medium`, `text-size-small`, `text-rich-text`
-- Buttons: `button-primary`, `button-secondary`, `button-ghost`, `button-outline`
-- Images: `u-image`
-- Responsive: `mob-is-top-none` (prefix pattern)
+- **Layout containers:** `container-large` (80rem), `container-medium` (64rem), `container-small` (48rem), `container-xl` (alias for container-large)
+- **Horizontal padding:** `padding-global` — fixed **2rem** left/right (NOT 5%). Applied to the wrapper div inside sections.
+- **Vertical padding:** `padding-section-large` (7rem), `padding-section-medium` (5rem), `padding-section-small` (3rem) — responsive, see `breakpoints.md`. Applied as combo class on same element as padding-global.
+- **Typography:** `heading-style-h1` through `heading-style-h6`, `text-size-large`, `text-size-medium`, `text-size-regular`, `text-size-small`, `text-rich-text`
+- **Text weight:** `text-weight-xbold`, `text-weight-bold`, `text-weight-semibold`, `text-weight-medium`, `text-weight-normal`, `text-weight-light`
+- **Text alignment:** `text-align-left`, `text-align-center`, `text-align-right`
+- **Buttons:** `button` (base) + `is-secondary`, `is-ghost`, `is-outline`, `is-link`, `is-text`, `is-small`, `is-icon`, `is-alternate` (combo modifiers)
+- **Images:** `u-image`
+- **Responsive visibility:** `hide`, `hide-tablet`, `hide-mobile-landscape`, `hide-mobile-portrait`
 
 ### Design Variables
 
-Created automatically by Phase 2.5 (Style Guide Generation). Managed via Webflow's `variable_tool`.
+Managed via Webflow's `variable_tool`. The Relume starter template ships with its own variable collections — the automation **updates existing variables** to match Figma tokens rather than creating from scratch.
 
 - **Colors collection:** `color-primary`, `color-secondary`, `color-accent`, `color-neutral-{900,700,500,300,100,0}`, `color-success`, `color-error`, `color-warning`, `color-info`
 - **Spacing collection:** `spacing-{xxl,xl,lg,md,sm,xs,xxs}`
 - See `docs/reference/style-guide.md` for default values and responsive scales
+
+**Important:** Always query existing variable collections first (`variable_tool → get_variable_collections`). Map Relume's existing variable names to the project conventions before creating new ones — prefer updating over creating duplicates.
 
 ### Semantic HTML (mandatory)
 - `<section>` for page sections
@@ -82,3 +93,11 @@ Created automatically by Phase 2.5 (Style Guide Generation). Managed via Webflow
 - Designer API requires Webflow Designer open + companion app running
 - Images must be pre-uploaded to Webflow asset library (MCP can't upload)
 - Publish via `sites-publish` after building, then wait before screenshotting
+
+### MCP Limitations (what it CANNOT do)
+- **Rich text child styling** — Can apply a class to the rich text container, but cannot style nested element types (All H2s, All Paragraphs, etc.) within it. Must be done manually in Designer or pre-set in the Relume template.
+- **Form elements** — Cannot create actual FormInput, FormTextarea, FormSelect elements. Creates DivBlocks that look like inputs. Real form elements must come from the template.
+- **Inline styles on specific elements** — Limited ability to set per-element overrides; prefer combo classes instead.
+- **Rich text block content** — Cannot programmatically add/edit content inside a RichText element.
+
+These limitations are why the Style Guide page must be pre-built from a template (Relume) rather than generated from scratch.

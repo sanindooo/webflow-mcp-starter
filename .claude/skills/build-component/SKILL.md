@@ -101,355 +101,288 @@ Parse the Figma URL to extract `fileKey` and `nodeId`:
    4. Retry
    ```
 
-## Phase 2.5: Style Guide Generation
+## Phase 2.5: Style Guide Verification & Token Sync
 
-**Purpose:** Ensure foundational styles (typography, colours, buttons) and design variables exist in Webflow before any component is built. Runs automatically on every `/build-component` invocation but skips creation for anything that already exists (idempotent).
+**Purpose:** Verify the Webflow project has a Style Guide page with foundational styles, then sync design tokens from Figma to match the project's brand.
 
-**Context protection:** This phase involves many MCP calls (~40-60). Consider running it in an Agent sub-task to protect the main context window. The sub-agent should return a summary of what was created vs skipped.
+**Prerequisite:** The project must already have a `/style-guide` page cloned from the Relume starter template (or a minimal derivative). This page provides elements the MCP cannot create programmatically: rich text blocks with styled children, real form inputs, checkboxes, radios, toggles, etc.
 
-### Step 2.5.0: Detect Existing Styles & Variables
-
-Check what already exists in Webflow:
+### Step 2.5.0: Verify Style Guide Exists
 
 ```
-1. style_tool → get_styles (query: "all", skip_properties: true)
-   Context: "Querying all existing styles to determine which foundational typography and button styles need to be created."
+1. de_page_tool → list pages, check for "/style-guide"
+   Context: "Checking if the required Style Guide page exists."
 
-2. variable_tool → get_variable_collections (query: "all")
-   Context: "Listing all variable collections to check if Colors and Spacing token collections already exist."
+2. style_tool → get_styles (query: "all", skip_properties: true)
+   Context: "Querying existing styles to understand what the template provides."
 
-3. de_page_tool → list pages, check for "/style-guide"
-   Context: "Checking if a Style Guide page already exists to avoid duplicate page creation."
+3. variable_tool → get_variable_collections (query: "all")
+   Context: "Listing existing variable collections — Relume templates ship with their own variables."
 ```
 
-**Skip logic:**
-- If styles contain `heading-style-h1` AND variables contain `Colors` collection AND `/style-guide` page exists → **skip Phase 2.5 entirely**
-- If partial → continue, creating only what's missing
-- Track which items exist to skip individually in subsequent steps
+**Gate check:**
+- If `/style-guide` page does NOT exist → **STOP**. Inform the user:
+  ```
+  Style Guide Required:
+  This project needs a /style-guide page before components can be built.
+  Please clone from the Relume starter template (or your minimal derivative)
+  and run /build-component again.
+  ```
+- If page exists → continue. Inventory the existing styles and variables.
 
-### Step 2.5.1: Determine Token Source
+### Step 2.5.1: Inventory & Map Relume Template
+
+**Context protection:** Run this in an Agent sub-task. The sub-agent queries all variables and styles, then returns a structured mapping table.
+
+```
+1. Query all variable collections and their variables:
+   variable_tool → get_variable_collections (query: "all")
+   For each collection: variable_tool → get variables in collection
+   Context: "Inventorying Relume template variables for mapping to project conventions."
+
+2. Build variable mapping using docs/reference/style-guide.md "Relume Template Mapping" section:
+
+   a. Relume "Primitives" collection → map neutral shades to project color-neutral-* names:
+      - neutral-white → color-neutral-0
+      - neutral-shade-1 → color-neutral-100
+      - neutral-shade-2 → color-neutral-300
+      - neutral-shade-3 → (keep as primitive, no project equivalent)
+      - neutral-shade-4 → color-neutral-500
+      - neutral-shade-5 → color-neutral-700
+      - neutral-shade-6 → (keep as primitive, no project equivalent)
+      - neutral-shade-7 → color-neutral-900
+
+   b. Relume "Typography" collection → note font-style-heading and font-style-body variable IDs
+
+   c. Relume "UI Styles" collection → note radius-large/medium/small and border-width variable IDs
+
+   d. Relume "Color Schemes" collection → note all color-scheme variable IDs
+      (These reference primitives — they'll update automatically when primitives change)
+
+3. Query all styles:
+   style_tool → get_styles (query: "all", skip_properties: false)
+   Context: "Inventorying Relume template styles for mapping."
+
+4. Categorize existing styles:
+   a. Typography: heading-style-*, text-size-*, text-weight-*, text-align-*
+   b. Buttons: button, is-secondary, is-link, is-text, is-small, is-icon, is-alternate
+   c. Forms: form_*, is-text-area, is-select-input
+   d. Layout: padding-global, padding-section-*, container-*
+   e. Missing from project convention (to create): is-ghost, is-outline, container-xl
+
+5. Return structured mapping_table:
+   {
+     variables: {
+       to_update: [ { relume_id, relume_name, project_name, new_value } ],
+       to_create: [ { name, collection, type, value } ]
+     },
+     styles: {
+       to_update: [ { name, properties_to_change } ],
+       to_create: [ { name, parent_style, properties } ]
+     },
+     font_variable_ids: { heading: "...", body: "..." },
+     radius_variable_ids: { large: "...", medium: "...", small: "..." }
+   }
+```
+
+**Key principle:** Prefer updating existing Relume variables/styles over creating new ones. Only create new variables/styles if the template doesn't provide an equivalent.
+
+### Step 2.5.2: Extract Figma Tokens
 
 **Priority 1 — Figma style guide frame:**
 ```
 IF Figma fileKey was provided in Phase 1:
   Call get_metadata(fileKey) to list top-level frames
-  Context: "Searching for a Style Guide frame in the Figma file to extract design tokens for foundational styles."
-
   Search for a frame named "Style Guide" (case-insensitive)
 
   IF found:
     Call get_design_context(fileKey, styleGuideNodeId)
-    Context: "Extracting typography, colour, and button tokens from the Figma Style Guide frame."
-
+    Call get_variable_defs(fileKey)
     Parse extracted tokens:
-    - Colours → map to colour variable names
-    - Typography → map to heading-style-h1 through h6 + text sizes
-    - Buttons → map to button-primary/secondary/ghost/outline
-    Save extracted tokens for use in Steps 2.5.2-2.5.4
+    - Colours → hex values
+    - Typography → font-size, line-height, font-weight per heading level
+    - Spacing → values
+    Save extracted tokens for use in Step 2.5.3
 ```
 
 **Priority 2 — Fallback to reference doc:**
 ```
-IF no Figma style guide frame found (or no Figma URL provided):
+IF no Figma style guide frame found (or Figma rate-limited):
   Read docs/reference/style-guide.md
   Use the default token values defined there
 ```
 
-### Step 2.5.2: Create Variables
+### Step 2.5.3: Sync Variables
 
-**Order:** Collections first, then variables within each collection. Track returned variable IDs — they are needed for `variable_as_value` when creating styles in Step 2.5.3.
+Use the mapping_table from Step 2.5.1 and tokens from Step 2.5.2.
 
-```
-1. Create "Colors" variable collection (if not exists):
-   variable_tool → create_variable_collection
-   Context: "Creating the Colors variable collection to store brand, neutral, and semantic colour design tokens."
-
-2. Create each colour variable (skip if name already exists in collection):
-   variable_tool → create_color_variable (one per call)
-   Context: "Creating the [variable-name] colour variable in the Colors collection for site-wide design consistency."
-
-   Variables to create (from style-guide.md or Figma):
-   - color-primary (#1A1A2E)
-   - color-secondary (#16213E)
-   - color-accent (#0F3460)
-   - color-neutral-900 (#111111)
-   - color-neutral-700 (#333333)
-   - color-neutral-500 (#666666)
-   - color-neutral-300 (#CCCCCC)
-   - color-neutral-100 (#F5F5F5)
-   - color-neutral-0 (#FFFFFF)
-   - color-success (#22C55E)
-   - color-error (#EF4444)
-   - color-warning (#F59E0B)
-   - color-info (#3B82F6)
-
-3. Create "Spacing" variable collection (if not exists):
-   variable_tool → create_variable_collection
-   Context: "Creating the Spacing variable collection to store spacing design tokens used across all components."
-
-4. Create each spacing variable (skip if name already exists):
-   variable_tool → create_size_variable (one per call)
-   Context: "Creating the [variable-name] spacing variable for consistent spacing across the site."
-
-   Variables to create (from style-guide.md or Figma):
-   - spacing-xxl (128px)
-   - spacing-xl (80px)
-   - spacing-lg (64px)
-   - spacing-md (40px)
-   - spacing-sm (24px)
-   - spacing-xs (16px)
-   - spacing-xxs (8px)
-```
-
-**Batching note:** Create one variable per `variable_tool` call until batch limits are confirmed via spike testing.
-
-### Step 2.5.3: Create Styles
-
-**Order:** Typography first (headings, then text), then buttons.
-
-**For each heading style (h1-h6):**
-```
-1. create_style (main breakpoint):
-   style_tool → create_style
-   Context: "Creating the [style-name] typography class with desktop font-size, line-height, and font-weight."
-
-   Properties (3 per call):
-   - font-size: [value from token source]
-   - line-height: [value]
-   - font-weight: [value]
-
-   If colour variable ID is available, add in a second call:
-   - color: variable_as_value → [color-neutral-900 variable ID]
-
-2. update_style at "medium" breakpoint (font-size override only):
-   style_tool → update_style
-   Context: "Applying tablet breakpoint font-size override for [style-name] responsive typography scaling."
-
-3. update_style at "small" breakpoint:
-   Context: "Applying mobile landscape font-size override for [style-name] responsive typography scaling."
-
-4. update_style at "tiny" breakpoint:
-   Context: "Applying mobile portrait font-size override for [style-name] responsive typography scaling."
-```
-
-Skip breakpoint overrides where the value is the same as the inherited value (e.g., `text-size-medium` stays at 1rem across all breakpoints).
-
-**For text styles (text-size-large, text-size-medium, text-size-small, text-rich-text):**
-Same pattern as headings. Only override at breakpoints where the value differs.
-
-**For button styles (button-primary, button-secondary, button-ghost, button-outline):**
-```
-1. create_style (noPseudo):
-   style_tool → create_style
-   Context: "Creating the [button-name] button style with background, border, padding, and typography properties."
-
-   Properties (batch in 3-4 per call, may need 2 calls):
-   Call A: background-color, color, font-weight, font-size
-   Call B: padding-top, padding-bottom, padding-left, padding-right
-   Call C: border-radius, cursor, text-decoration
-   (For bordered buttons: border-top-width, border-top-style, border-top-color, etc.)
-
-2. update_style (hover pseudo):
-   style_tool → update_style (pseudo: "hover")
-   Context: "Adding hover state styles for [button-name] button interaction feedback."
-
-3. update_style at "medium" breakpoint (min-height: 44px for touch targets):
-   Context: "Setting 44px minimum touch target height for [button-name] at tablet breakpoint."
-```
-
-**Estimated total calls:** ~6 headings x 4 breakpoints = 24, ~4 text styles x 2 = 8, ~4 buttons x 3 = 12 → ~44 style_tool calls.
-
-### Step 2.5.4: Create Style Guide Page
-
-Create a visible but nav-hidden page that displays all style samples.
+**Context protection:** Run in an Agent sub-task (~20-30 variable_tool calls). Return a summary of what was updated/created with all variable IDs.
 
 ```
-1. Create the page:
-   de_page_tool → create_page
-   - title: "Style Guide"
-   - slug: "style-guide"
-   Context: "Creating a Style Guide reference page to display all foundational typography, colour, and button samples."
+1. Update existing Relume primitives with project palette values:
+   For each entry in mapping_table.variables.to_update:
+     variable_tool → update_color_variable (or update_size_variable)
+     - variable_id: entry.relume_id
+     - value: Figma token value (or fallback from style-guide.md)
+     Context: "Updating Relume primitive [relume_name] to project value [new_value] for [project_name]."
 
-2. Build page structure via element_builder (sequential, max 3 levels per call):
+   Priority order:
+   a. Neutral shades (neutral-white through neutral-shade-7)
+   b. Font family variables (font-style-heading, font-style-body)
+   c. UI variables (radius-large/medium/small)
+
+2. Create missing project variables:
+   For each entry in mapping_table.variables.to_create:
+
+   a. Create "Colors" collection (if not exists):
+      variable_tool → create_variable_collection (name: "Colors")
+      Context: "Creating Colors collection for brand and semantic colour tokens."
+
+   b. Create each colour variable:
+      variable_tool → create_color_variable (one per call)
+      Variables: color-primary, color-secondary, color-accent,
+                 color-success, color-error, color-warning, color-info
+      Context: "Creating [variable-name] colour variable."
+
+   c. Create "Spacing" collection (if not exists):
+      variable_tool → create_variable_collection (name: "Spacing")
+      Context: "Creating Spacing collection for spacing design tokens."
+
+   d. Create each spacing variable:
+      variable_tool → create_size_variable (one per call)
+      Variables: spacing-xxl (8rem) through spacing-xxs (0.5rem)
+      Context: "Creating [variable-name] spacing variable."
+
+3. Track ALL variable IDs (both updated and created):
+   Build a variable_id_map: { project_name → variable_id }
+   This is needed for variable_as_value when syncing styles.
 ```
 
-**Call 1:** Section wrapper
-```json
-{
-  "type": "DivBlock",
-  "set_style": { "style_names": ["sg_section", "padding-global", "padding-section-xl"] },
-  "children": [
-    {
-      "type": "DivBlock",
-      "set_style": { "style_names": ["container-xl"] },
-      "children": [
-        {
-          "type": "DivBlock",
-          "set_style": { "style_names": ["sg_component"] }
-        }
-      ]
-    }
-  ]
-}
+**Error recovery:** If variable_tool fails, fall back to hardcoded hex/rem values in styles (no variable references). Log for manual linking later.
+
+### Step 2.5.4: Sync Styles
+
+**Context protection:** Run in an Agent sub-task (~30-50 style_tool calls). Use the mapping_table from Step 2.5.1, tokens from Step 2.5.2, and variable_id_map from Step 2.5.3.
+
+**Order:** Layout first, then typography, then buttons. Forms last (usually just need variable binding updates).
+
+**1. Layout styles:**
 ```
-Context: "Building the Style Guide page outer shell with padding-global, padding-section-xl, and container-xl wrapper structure."
+a. Update padding-global:
+   style_tool → update_style "padding-global"
+   Set: padding-left: 2rem, padding-right: 2rem
+   (Overrides Relume's default 5%)
+   Context: "Updating padding-global from 5% to fixed 2rem."
 
-**Call 2:** Page header (parent: sg_component)
-```json
-{
-  "type": "DivBlock",
-  "set_style": { "style_names": ["sg_header"] },
-  "children": [
-    {
-      "type": "Heading",
-      "set_style": { "style_names": ["heading-style-h1"] },
-      "set_heading": { "level": 1 },
-      "set_text": { "text": "Style Guide" }
-    }
-  ]
-}
-```
-Context: "Adding the Style Guide page header with heading-style-h1 typography class."
+b. Update padding-section-large/medium/small breakpoint overrides:
+   For each size (large/medium/small):
+     update_style at "medium" breakpoint with responsive value
+     update_style at "small" breakpoint
+     update_style at "tiny" breakpoint
+   See docs/reference/breakpoints.md for values.
+   Context: "Applying responsive overrides for padding-section-[size]."
 
-**Call 3:** Colours section header + grid (parent: sg_component)
-```json
-{
-  "type": "DivBlock",
-  "set_style": { "style_names": ["sg_section-block"] },
-  "children": [
-    {
-      "type": "Heading",
-      "set_style": { "style_names": ["heading-style-h2"] },
-      "set_heading": { "level": 2 },
-      "set_text": { "text": "Colours" }
-    },
-    {
-      "type": "DivBlock",
-      "set_style": { "style_names": ["sg_colour-grid"] }
-    }
-  ]
-}
-```
-Context: "Creating the Colours section with heading and grid container for colour swatch samples."
-
-**Calls 4-6:** Colour swatches (parent: sg_colour-grid, repeat for each colour)
-```json
-{
-  "type": "DivBlock",
-  "set_style": { "style_names": ["sg_colour-swatch"] },
-  "children": [
-    {
-      "type": "Paragraph",
-      "set_style": { "style_names": ["sg_colour-label"] },
-      "set_text": { "text": "color-primary\n#1A1A2E" }
-    }
-  ]
-}
-```
-Context: "Adding colour swatch sample for [colour-name] to the Style Guide colour grid."
-
-After creating each swatch, apply an inline background-color via `style_tool` using the corresponding variable.
-
-**Call 7:** Typography section (parent: sg_component)
-```json
-{
-  "type": "DivBlock",
-  "set_style": { "style_names": ["sg_section-block"] },
-  "children": [
-    {
-      "type": "Heading",
-      "set_style": { "style_names": ["heading-style-h2"] },
-      "set_heading": { "level": 2 },
-      "set_text": { "text": "Typography" }
-    },
-    {
-      "type": "DivBlock",
-      "set_style": { "style_names": ["sg_type-samples"] }
-    }
-  ]
-}
-```
-Context: "Creating the Typography section with heading and container for heading and text samples."
-
-**Calls 8-10:** Typography samples (parent: sg_type-samples)
-Add one heading per level (h1-h6) with sample text, then paragraph samples:
-```json
-{
-  "type": "Heading",
-  "set_style": { "style_names": ["heading-style-h1"] },
-  "set_heading": { "level": 1 },
-  "set_text": { "text": "Heading 1 — The quick brown fox" }
-}
-```
-Context: "Adding [heading-level] typography sample to the Style Guide page."
-
-Then text samples:
-```json
-{
-  "type": "Paragraph",
-  "set_style": { "style_names": ["text-size-large"] },
-  "set_text": { "text": "Large body text. The quick brown fox jumps over the lazy dog." }
-}
+c. Create container-xl (alias for container-large):
+   IF "container-xl" not in existing styles:
+     style_tool → create_style "container-xl"
+     Properties: max-width: 80rem, margin-left: auto, margin-right: auto
+     Context: "Creating container-xl as project alias for container-large."
 ```
 
-**Call 11:** Buttons section (parent: sg_component)
-```json
-{
-  "type": "DivBlock",
-  "set_style": { "style_names": ["sg_section-block"] },
-  "children": [
-    {
-      "type": "Heading",
-      "set_style": { "style_names": ["heading-style-h2"] },
-      "set_heading": { "level": 2 },
-      "set_text": { "text": "Buttons" }
-    },
-    {
-      "type": "DivBlock",
-      "set_style": { "style_names": ["sg_button-grid"] }
-    }
-  ]
-}
+**2. Typography styles:**
 ```
-Context: "Creating the Buttons section with heading and grid container for button variant samples."
+For each heading style (heading-style-h1 through h6):
+  a. update_style with Figma token values:
+     - font-size, line-height, font-weight (3 properties per call)
+     Context: "Updating [style-name] to match Figma typography tokens."
 
-**Call 12:** Button samples (parent: sg_button-grid)
-```json
-{
-  "type": "Link",
-  "set_style": { "style_names": ["button-primary"] },
-  "set_text": { "text": "Primary Button" },
-  "set_link": { "linkType": "url", "link": "#" }
-}
+  b. Bind colour to variable:
+     - color: variable_as_value → variable_id_map["color-neutral-900"]
+     Context: "Binding [style-name] colour to color-neutral-900 variable."
+
+  c. Apply breakpoint overrides (medium, small, tiny):
+     Only where font-size differs from the inherited value.
+     Context: "Applying [breakpoint] font-size override for [style-name]."
+
+For each text style (text-size-large, text-size-medium, text-size-small, text-rich-text):
+  Same pattern. Bind colour to color-neutral-700.
+  Skip breakpoint overrides where value is same across all breakpoints.
 ```
-Repeat for each button variant (secondary, ghost, outline).
-Context: "Adding [button-variant] button sample to the Style Guide buttons grid."
 
-### Step 2.5.5: Style Guide Page Styles
+**3. Button styles:**
+```
+a. Update base "button" class (already exists in Relume):
+   update_style: background-color → variable color-accent, color → variable color-neutral-0
+   update_style: font-weight 600, font-size 1rem, border-radius via variable radius-medium
+   Context: "Updating button base class with project brand colours."
 
-Create the `sg_` prefixed styles for the Style Guide page layout:
+b. Update "is-secondary" combo class:
+   update_style: background-color → variable color-neutral-100, color → variable color-neutral-900
+   update_style: border colors → variable color-neutral-300
+   Context: "Updating is-secondary button variant colours."
 
-| Style | Key Properties |
-|---|---|
-| `sg_section` | `display: block` |
-| `sg_component` | `display: flex`, `flex-direction: column`, `grid-row-gap: 4rem` |
-| `sg_header` | `display: block` |
-| `sg_section-block` | `display: flex`, `flex-direction: column`, `grid-row-gap: 1.5rem` |
-| `sg_colour-grid` | `display: grid`, `grid-template-columns: repeat(4, 1fr)`, `grid-column-gap: 1rem`, `grid-row-gap: 1rem` |
-| `sg_colour-swatch` | `padding-top: 2.5rem`, `padding-bottom: 1rem`, `padding-left: 1rem`, `padding-right: 1rem`, `border-radius: 0.5rem` |
-| `sg_colour-label` | `font-size: 0.75rem`, `color` → `color-neutral-500` var |
-| `sg_type-samples` | `display: flex`, `flex-direction: column`, `grid-row-gap: 1rem` |
-| `sg_button-grid` | `display: flex`, `flex-direction: row`, `grid-column-gap: 1rem`, `align-items: center` |
+c. Create "is-ghost" combo class (NOT in Relume):
+   create_style "is-ghost" with parent_style_name "button":
+   Properties: background-color transparent, color → variable color-accent
+   Hover pseudo: opacity 0.7
+   Context: "Creating is-ghost button variant."
+
+d. Create "is-outline" combo class (NOT in Relume):
+   create_style "is-outline" with parent_style_name "button":
+   Properties: background-color transparent, color → variable color-accent
+   Border: 1px solid → variable color-accent (all 4 sides, longhand)
+   Hover pseudo: background-color → variable color-accent, color → variable color-neutral-0
+   Context: "Creating is-outline button variant."
+
+e. Apply hover states to base button:
+   update_style pseudo "hover": opacity 0.85
+   Context: "Adding hover state to button base class."
+
+f. Apply responsive touch targets:
+   update_style at "medium" breakpoint: min-height 2.75rem
+   Context: "Setting 44px touch target for buttons at tablet."
+```
+
+**4. Form styles (light touch):**
+```
+Relume forms already have proper structure (form_input, form_field-label, etc.).
+Only update border/focus colours to use project variables:
+
+a. update_style "form_input":
+   border colors → variable color-neutral-300
+   Focus pseudo: border colors → variable color-accent
+   Context: "Binding form input borders to project colour variables."
+
+b. Repeat for form_textarea and form_select if they exist.
+```
+
+Skip breakpoint overrides where the value is the same as the inherited value.
+
+### Step 2.5.5: Verify Rich Text Styling
+
+The Relume template's rich text block should already have styled children (All H2s, All Paragraphs, All Links, etc.). Verify by visual inspection:
+- Switch to the style-guide page
+- Check that the rich text block renders with proper typography hierarchy
+
+If rich text children need updating, inform the user — this must be done manually in the Designer:
+```
+Rich Text Children (manual update needed):
+- All H2s: font-size 2rem, weight 700, color color-neutral-900
+- All Paragraphs: font-size 1rem, line-height 1.6, color color-neutral-700
+- All Links: color color-accent, underline
+- All Blockquotes: border-left 3px solid color-accent, italic
+```
 
 ### Phase 2.5 Summary
 
 After completing Phase 2.5, log a summary:
 ```
-Style Guide Generation Complete:
-- Variables: Created X / Skipped Y (already existed)
-- Styles: Created X / Skipped Y
-- Style Guide page: Created / Already existed
+Style Guide Sync Complete:
+- Template: Relume (or derivative)
 - Token source: Figma / Fallback (docs/reference/style-guide.md)
+- Variables: Updated X / Created Y / Skipped Z
+- Styles: Updated X / Created Y / Skipped Z
+- Manual tasks: [list any items requiring Designer interaction]
 ```
 
 ## Phase 3: Read (Figma -> Component Map)

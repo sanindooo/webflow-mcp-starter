@@ -5,3 +5,16 @@ playwright/.cache/
 .env
 .env.local
 *.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
