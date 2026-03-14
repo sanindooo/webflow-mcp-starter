@@ -273,11 +273,11 @@ Create a visible but nav-hidden page that displays all style samples.
 2. Build page structure via element_builder (sequential, max 3 levels per call):
 ```
 
-**Call 1:** Page wrapper
+**Call 1:** Section wrapper
 ```json
 {
   "type": "DivBlock",
-  "set_style": { "style_names": ["sg_section", "padding-global"] },
+  "set_style": { "style_names": ["sg_section", "padding-global", "padding-section-xl"] },
   "children": [
     {
       "type": "DivBlock",
@@ -292,18 +292,24 @@ Create a visible but nav-hidden page that displays all style samples.
   ]
 }
 ```
-Context: "Building the Style Guide page outer shell with padding-global and container-xl wrapper structure."
+Context: "Building the Style Guide page outer shell with padding-global, padding-section-xl, and container-xl wrapper structure."
 
 **Call 2:** Page header (parent: sg_component)
 ```json
 {
-  "type": "Heading",
-  "set_style": { "style_names": ["heading-style-h1"] },
-  "set_heading": { "level": 1 },
-  "set_text": { "text": "Style Guide" }
+  "type": "DivBlock",
+  "set_style": { "style_names": ["sg_header"] },
+  "children": [
+    {
+      "type": "Heading",
+      "set_style": { "style_names": ["heading-style-h1"] },
+      "set_heading": { "level": 1 },
+      "set_text": { "text": "Style Guide" }
+    }
+  ]
 }
 ```
-Context: "Adding the Style Guide page title heading with heading-style-h1 typography class."
+Context: "Adding the Style Guide page header with heading-style-h1 typography class."
 
 **Call 3:** Colours section header + grid (parent: sg_component)
 ```json
@@ -425,14 +431,15 @@ Create the `sg_` prefixed styles for the Style Guide page layout:
 
 | Style | Key Properties |
 |---|---|
-| `sg_section` | `display: block`, `padding-top: 80px`, `padding-bottom: 80px` |
-| `sg_component` | `display: flex`, `flex-direction: column`, `grid-row-gap: 64px` |
-| `sg_section-block` | `display: flex`, `flex-direction: column`, `grid-row-gap: 24px` |
-| `sg_colour-grid` | `display: grid`, `grid-template-columns: repeat(4, 1fr)`, `grid-column-gap: 16px`, `grid-row-gap: 16px` |
-| `sg_colour-swatch` | `padding-top: 40px`, `padding-bottom: 16px`, `padding-left: 16px`, `padding-right: 16px`, `border-radius: 8px` |
+| `sg_section` | `display: block` |
+| `sg_component` | `display: flex`, `flex-direction: column`, `grid-row-gap: 4rem` |
+| `sg_header` | `display: block` |
+| `sg_section-block` | `display: flex`, `flex-direction: column`, `grid-row-gap: 1.5rem` |
+| `sg_colour-grid` | `display: grid`, `grid-template-columns: repeat(4, 1fr)`, `grid-column-gap: 1rem`, `grid-row-gap: 1rem` |
+| `sg_colour-swatch` | `padding-top: 2.5rem`, `padding-bottom: 1rem`, `padding-left: 1rem`, `padding-right: 1rem`, `border-radius: 0.5rem` |
 | `sg_colour-label` | `font-size: 0.75rem`, `color` → `color-neutral-500` var |
-| `sg_type-samples` | `display: flex`, `flex-direction: column`, `grid-row-gap: 16px` |
-| `sg_button-grid` | `display: flex`, `flex-direction: row`, `grid-column-gap: 16px`, `align-items: center` |
+| `sg_type-samples` | `display: flex`, `flex-direction: column`, `grid-row-gap: 1rem` |
+| `sg_button-grid` | `display: flex`, `flex-direction: row`, `grid-column-gap: 1rem`, `align-items: center` |
 
 ### Phase 2.5 Summary
 
