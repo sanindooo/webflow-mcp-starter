@@ -65,6 +65,29 @@ Managed via Webflow's `variable_tool`. The Relume starter template ships with it
 - `button-function` / `button-function-arg1` / `button-function-arg2` — button behavior
 - `data-eapps-font-size` / `data-eapps-line-height` — responsive font scaling
 
+## Custom Code Delivery
+
+All custom JavaScript is served via **jsDelivr CDN** from GitHub release tags. Never use inline scripts.
+
+### Script organization
+- **Global scripts** (`scripts/global/`) — loaded site-wide. Shared animations, analytics, nav behavior.
+- **Component scripts** (`scripts/components/`) — loaded per-page. Logic unique to one component.
+- **Decision rule:** If >1 component uses the behavior → global. If unique to one → component.
+- **Manifest:** `scripts/manifest.json` maps components to their scripts and stores the current version tag.
+
+### Delivery workflow
+1. Write JS in `scripts/` (wrapped in IIFE, `'use strict'`, assume `gsap` is global)
+2. Commit, push, tag release: `git tag v{x.y.z} && git push --tags`
+3. jsDelivr URL: `https://cdn.jsdelivr.net/gh/{user}/{repo}@{tag}/{path}`
+4. Inject `<script src>` tag via `data_scripts_tool` (page-level for components, project-level for globals)
+5. All scripts use `defer` attribute
+6. Publish site after injection
+
+### Dev testing
+- Run `pnpm dev` to serve scripts locally on port 3000
+- Use a browser extension (Resource Override / Requestly) to redirect jsDelivr URLs to localhost during development
+- See `docs/reference/custom-code.md` for full workflow
+
 ## Automation Boundary
 
 ### What the automation handles

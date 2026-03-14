@@ -37,6 +37,8 @@ allowed-tools:
   - "Write(/Users/sanindo/webflow-mcp-test/test-results/**)"
   - "Write(/Users/sanindo/webflow-mcp-test/docs/**)"
   - "Write(/Users/sanindo/webflow-mcp-test/tests/**)"
+  - "Write(/Users/sanindo/webflow-mcp-test/scripts/**)"
+  - "Edit(/Users/sanindo/webflow-mcp-test/scripts/**)"
   - Glob
   - Grep
   - Agent
@@ -494,8 +496,12 @@ During the build, evaluate whether additional skills are needed:
 2. Invoke `/cms-collection-setup` — create collections with fields
 3. Invoke `/bulk-cms-update` — populate items
 
-**Custom scripts needed** (analytics, tracking, third-party):
-1. Invoke `/custom-code-management`
+**Custom scripts needed** (animations, analytics, interactions):
+1. Read `scripts/manifest.json` to check if the component has an associated script
+2. If script exists in manifest → invoke `/custom-code-management` to inject the jsDelivr `<script>` tag on the target page
+3. If component needs NEW custom JS → invoke `/custom-code-management` to create the script file, update the manifest, and inject
+4. Ensure global scripts (e.g., shared animations) are present at the project level — invoke `/custom-code-management` for idempotent check
+5. After injection, inform user to commit, tag, and push if new scripts were created
 
 ## Phase 5: Verify (Quality Gate)
 

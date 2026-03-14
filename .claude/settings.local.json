@@ -51,7 +51,10 @@
       "WebFetch(domain:relume-styleguide.webflow.io)",
       "WebFetch(domain:relume-library-styleguide.webflow.io)",
       "WebFetch(domain:www.finsweet.com)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(git symbolic-ref:*)",
+      "Bash(pnpm install:*)"
     ]
   }
 }
