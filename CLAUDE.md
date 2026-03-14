@@ -5,10 +5,11 @@ This project automates Figma-to-Webflow website building with visual verificatio
 ## Pipeline Loop
 
 1. **Read** — Figma MCP extracts design specs
-2. **Build** — Webflow MCP creates elements with correct structure and classes
-3. **Capture** — Playwright screenshots the live Webflow page
-4. **Compare** — Claude vision compares Figma reference vs Webflow screenshot
-5. **Iterate** — Fix issues via Webflow MCP, re-capture, re-compare (max 5x)
+2. **Style Guide** — Auto-generate foundational styles, variables, and Style Guide page (Phase 2.5, runs once per site)
+3. **Build** — Webflow MCP creates elements with correct structure and classes
+4. **Capture** — Playwright screenshots the live Webflow page
+5. **Compare** — Claude vision compares Figma reference vs Webflow screenshot
+6. **Iterate** — Fix issues via Webflow MCP, re-capture, re-compare (max 5x)
 
 ## Class Naming Conventions (Client-First adapted)
 
@@ -19,9 +20,18 @@ This project automates Figma-to-Webflow website building with visual verificatio
 
 ### Utility Classes
 - Layout: `container-xl`, `padding-global`, `padding-section-xl`
-- Typography: `heading-style-h2`, `text-rich-text`
+- Typography: `heading-style-h1` through `heading-style-h6`, `text-size-large`, `text-size-medium`, `text-size-small`, `text-rich-text`
+- Buttons: `button-primary`, `button-secondary`, `button-ghost`, `button-outline`
 - Images: `u-image`
 - Responsive: `mob-is-top-none` (prefix pattern)
+
+### Design Variables
+
+Created automatically by Phase 2.5 (Style Guide Generation). Managed via Webflow's `variable_tool`.
+
+- **Colors collection:** `color-primary`, `color-secondary`, `color-accent`, `color-neutral-{900,700,500,300,100,0}`, `color-success`, `color-error`, `color-warning`, `color-info`
+- **Spacing collection:** `spacing-{xxl,xl,lg,md,sm,xs,xxs}`
+- See `docs/reference/style-guide.md` for default values and responsive scales
 
 ### Semantic HTML (mandatory)
 - `<section>` for page sections
