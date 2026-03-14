@@ -19,7 +19,9 @@ This project automates Figma-to-Webflow website building with visual verificatio
 - **Modifiers:** `is-` prefix (e.g., `is-2`, `is-animated`, `is-link`, `is-decor`)
 
 ### Utility Classes
-- Layout: `container-xl`, `padding-global`, `padding-section-xl`
+- Layout: `container-xl`, `padding-global` (2rem fixed horizontal padding), `padding-section-xl` (vertical section padding, responsive)
+- **padding-global** uses **fixed 2rem** left/right (NOT 5% percentage). Applied to the wrapper div inside sections.
+- **padding-section-xl** provides vertical padding (112px desktop → 80px tablet → 56px mobile → 40px tiny). Applied as a combo class on the same element as padding-global.
 - Typography: `heading-style-h1` through `heading-style-h6`, `text-size-large`, `text-size-medium`, `text-size-small`, `text-rich-text`
 - Buttons: `button-primary`, `button-secondary`, `button-ghost`, `button-outline`
 - Images: `u-image`
