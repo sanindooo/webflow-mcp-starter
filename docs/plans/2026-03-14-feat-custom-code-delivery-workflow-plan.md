@@ -84,13 +84,13 @@ scripts/
 
 Before building anything, test the MCP tool to understand its actual behavior.
 
-- [ ] Fetch `data_scripts_tool` schema and document parameters
-- [ ] Test: does it append to existing scripts or replace them?
-- [ ] Test: can it target project-level (site-wide) vs page-level scripts?
-- [ ] Test: can it list/read existing scripts on a page?
-- [ ] Test: can it remove a script tag?
-- [ ] Test: character limit behavior (the `<script src>` tags are ~100 chars, well under 2000)
-- [ ] Document results in `docs/spike-results.md` under a new `## data_scripts_tool` section
+- [x] Fetch `data_scripts_tool` schema and document parameters
+- [x] Test: does it append to existing scripts or replace them? **REPLACES ALL — read-merge-write mandatory**
+- [x] Test: can it target project-level (site-wide) vs page-level scripts? **Yes, independently**
+- [x] Test: can it list/read existing scripts on a page? **Yes, via get_page_script**
+- [x] Test: can it remove a script tag? **delete_all_page_scripts / delete_all_site_scripts (404 if empty)**
+- [x] Test: character limit behavior — **inline only, no external URLs. Workaround: loader stub (~220 chars)**
+- [x] Document results in `docs/spike-results.md` under a new `## data_scripts_tool` section
 
 **Blocking:** All subsequent phases depend on this. If the tool replaces rather than appends, the injection logic must read-merge-write.
 
@@ -184,7 +184,7 @@ When the pipeline injects a component script tag, it must not create duplicates 
 - [x] `manifest.json` has a defined schema and at least one example entry
 - [x] `/custom-code-management` skill exists and can inject a jsDelivr script tag into a Webflow page
 - [x] `build-component` skill Phase 4.4 uses the new skill instead of a stub reference
-- [ ] `data_scripts_tool` behavior is documented in spike results *(deferred — requires MCP connection)*
+- [x] `data_scripts_tool` behavior is documented in spike results
 - [x] Local dev server can serve scripts for testing
 - [ ] At least one git tag exists and jsDelivr successfully serves a script from it *(deferred — requires push + public repo)*
 - [x] `CLAUDE.md` documents the custom code workflow

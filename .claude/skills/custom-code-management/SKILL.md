@@ -27,22 +27,38 @@ You manage custom JavaScript delivery for Webflow sites. All scripts live in
 `scripts/`, are served via jsDelivr CDN from GitHub release tags, and are
 injected into Webflow pages using `data_scripts_tool`.
 
-## CRITICAL: Pre-flight Checks
+## CRITICAL: How data_scripts_tool Works
 
-**Before ANY injection operation, verify BOTH of these:**
+**Spike completed 2026-03-14.** See `docs/spike-results.md` for full details.
 
-1. **Spike completed?** Check if `docs/spike-results.md` has a `## data_scripts_tool`
-   section. If NOT found, **STOP** and tell the user:
-   > "The data_scripts_tool spike has not been completed. The tool's behavior
-   > (append vs replace, inline vs external URL support) is unknown. Run the
-   > spike first — see Phase 0 in the plan."
+### The tool only supports inline scripts (not external URLs)
 
-2. **Read before write.** The `upsert_page_script` action **replaces ALL existing
-   scripts** on a page. You MUST:
-   - Read existing page scripts first (`get_page_script`)
-   - Merge the new script into the existing array
-   - Write the full combined set back via `upsert_page_script`
-   - **Never call upsert without reading first — this causes silent data loss.**
+`add_inline_site_script` accepts a `sourceCode` string (max 2000 chars). There is
+NO action for external `<script src>` tags. **Workaround: use a loader stub** — a
+small inline script that dynamically creates a `<script>` element pointing to jsDelivr.
+
+### Loader stub template (with SRI)
+
+```javascript
+(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/{user}/{repo}@{version}/{path}';s.integrity='{integrity}';s.crossOrigin='anonymous';s.defer=true;document.head.appendChild(s);})()
+```
+
+~220 chars — safely under the 2000-char limit. One loader per jsDelivr script.
+
+### Two-step workflow: register then apply
+
+1. `add_inline_site_script` → registers the loader, returns an `id`
+2. `upsert_page_script` → applies by `id` to a specific page
+
+### upsert_page_script IS DESTRUCTIVE (replaces all)
+
+`upsert_page_script` replaces ALL existing scripts on the page. You MUST:
+- Read existing scripts first (`get_page_script`)
+- Merge the new script into the existing array
+- Write the full combined set via `upsert_page_script`
+- **Never call upsert without reading first — this causes silent data loss.**
+
+`get_page_script` returns 404 if no scripts exist (not an error — just means empty).
 
 ## Key Principle
 
@@ -121,24 +137,27 @@ Read `jsdelivr.user`, `jsdelivr.repo`, and `version` from `scripts/manifest.json
 
 ### 3. Inject Script into Webflow Page
 
-**Pre-flight:** Run the checks at the top of this document first.
-
-1. Read `scripts/manifest.json` for path, version, and integrity
-2. Construct the jsDelivr URL
+1. Read `scripts/manifest.json` for path, version, integrity, and jsdelivr config
+2. Construct the jsDelivr URL from the formula above
 3. **Verify the URL is live** before injecting:
    ```bash
    curl -s -o /dev/null -w "%{http_code}" "https://cdn.jsdelivr.net/gh/{user}/{repo}@{version}/{path}"
    ```
    If not 200, wait and retry (jsDelivr may need time to pick up a new tag).
-4. Build the script tag:
-   ```html
-   <script src="{url}" integrity="{integrity}" crossorigin="anonymous" defer></script>
+4. **Build the loader stub** (inline script that loads the jsDelivr file):
+   ```javascript
+   (function(){var s=document.createElement('script');s.src='{jsdelivr_url}';s.integrity='{integrity}';s.crossOrigin='anonymous';s.defer=true;document.head.appendChild(s);})()
    ```
-5. **Read existing scripts** on the target page via `data_scripts_tool` (`get_page_script`)
-6. **Merge** the new script into the existing list (avoid duplicates by checking src URL)
-7. **Write** the full combined set via `data_scripts_tool` (`upsert_page_script`)
+5. **Register the loader** via `data_scripts_tool` → `add_inline_site_script`:
+   - `sourceCode`: the loader stub from step 4
+   - `displayName`: script name (e.g., "animations-loader") — becomes the script `id`
+   - `version`: manifest version
+   - `location`: "footer"
+6. **Read existing page scripts** via `get_page_script` (404 = empty, not an error)
+7. **Merge** the new script `id` into the existing array (avoid duplicates by checking `id`)
+8. **Write** the full combined set via `upsert_page_script`
    - Component scripts → page-level
-   - Global scripts → project-level (site-wide)
+   - Global scripts → site-level (apply via project settings)
 
 ## Script Conventions
 
