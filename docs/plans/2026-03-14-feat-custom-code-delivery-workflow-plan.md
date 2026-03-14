@@ -33,7 +33,9 @@ scripts/
     testimonial-carousel.js
 ```
 
-**Delivery chain:** Local file → git commit → semver tag → jsDelivr CDN → `<script>` tag injected via `data_scripts_tool` → Webflow publish
+**Delivery chain:** Local file → git commit → semver tag → jsDelivr CDN → loader stub registered via `data_scripts_tool` (inline, ~220 chars) → applied to page → Webflow publish
+
+**Note:** `data_scripts_tool` only supports inline scripts (max 2000 chars), not external `<script src>` tags. The workaround is a loader stub that dynamically creates a `<script>` element pointing to jsDelivr with SRI. See `docs/spike-results.md`.
 
 **GSAP dependency:** Loaded via Webflow's built-in CDN toggle. Not bundled. All scripts can assume `gsap` is globally available.
 
@@ -166,7 +168,7 @@ After pushing a new tag, jsDelivr may take up to a few minutes to serve the new 
 3. Only then proceed to Webflow publish
 
 ### Script deduplication
-When the pipeline injects a component script tag, it must not create duplicates if the script is already on that page. The spike (Phase 0) will clarify whether `data_scripts_tool` handles this natively or if the skill must check first.
+When the pipeline registers a loader stub and applies it to a page, it must not create duplicates. Since `upsert_page_script` replaces all scripts, the skill reads existing scripts first, merges, and writes the combined set. Duplicate checking is done by matching script `id` values.
 
 ### Error handling
 - Scripts should be wrapped in an IIFE to avoid polluting the global scope
@@ -193,7 +195,7 @@ When the pipeline injects a component script tag, it must not create duplicates 
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| `data_scripts_tool` replaces instead of appends | High — could overwrite existing scripts | Phase 0 spike; if confirmed, implement read-merge-write |
+| `data_scripts_tool` replaces instead of appends | High — could overwrite existing scripts | **CONFIRMED** — read-merge-write implemented in skill |
 | Repo is private | High — jsDelivr returns 404 | Verify visibility before Phase 5 |
 | jsDelivr propagation delay | Medium — stale scripts after release | Polling check before publish |
 | GSAP toggle disabled | Medium — animation scripts error silently | Pre-flight check in build-component |

@@ -497,10 +497,12 @@ During the build, evaluate whether additional skills are needed:
 
 **Custom scripts needed** (animations, analytics, interactions):
 1. Read `scripts/manifest.json` to check if the component has an associated script
-2. If script exists in manifest → invoke `/custom-code-management` to inject the jsDelivr `<script>` tag on the target page
-3. If component needs NEW custom JS → invoke `/custom-code-management` to create the script file, update the manifest, and inject
-4. Ensure global scripts (e.g., shared animations) are present at the project level — invoke `/custom-code-management` for idempotent check
-5. After injection, inform user to commit, tag, and push if new scripts were created
+2. If script exists → invoke `/custom-code-management` to register a loader stub and apply it to the target page
+3. If component needs NEW custom JS → invoke `/custom-code-management` to create the script file, update the manifest, register the loader, and apply
+4. Ensure global scripts are present at the project level — invoke `/custom-code-management` for idempotent check
+5. After changes, inform user to commit, tag, and push if new scripts were created
+
+**Note:** `data_scripts_tool` only supports inline scripts (max 2000 chars). The skill uses a loader stub (~220 chars) that dynamically loads the jsDelivr file. See `docs/spike-results.md`.
 
 ## Phase 5: Verify (Quality Gate)
 
