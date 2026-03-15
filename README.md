@@ -159,6 +159,120 @@ Figma → export-assets.js → assets/ (local) → upload-assets.js → Webflow 
 
 The `asset-manifest.json` tracks every asset from Figma source to Webflow destination, enabling idempotent re-runs and hash-based deduplication.
 
+## Known Issues & Learnings
+
+Documented from test runs — these are critical to review before starting a new project.
+
+### Figma MCP Rate Limits
+
+The Figma MCP server has tool call limits per seat/plan. A single `/build-component` run can exhaust the free tier with `get_design_context` + `get_metadata` + `get_screenshot` + `get_variable_defs` calls. **Fallback:** Use the Figma REST API scripts (`extract-styles.js`, `FigmaClient.exportImages()`) which use your personal access token and have separate rate limits.
+
+### Webflow 4MB Asset Limit
+
+Webflow API rejects asset uploads exceeding 4MB. Figma exports are uncompressed PNG and frequently exceed this (5–11MB for photos). The upload script auto-compresses oversized images using `sips` (macOS) — converts PNG to JPEG at 80% quality, resizes to max 2400px width if still too large.
+
+### Designer API / Data API Asset Gap
+
+Assets uploaded via the **Data API** (`upload-assets.js`) are not immediately visible to the **Designer API** (`set_image_asset`). Workaround: set the `src` attribute directly on Image elements using the CDN URL. This means you may need to publish first, then set images via attribute.
+
+### Section Structure is Mandatory
+
+Every section MUST follow the Client-First wrapper pattern. Sub-agents frequently skip this — always verify after building:
+
+```
+DivBlock (tag: section) .section_[layout-name]
+  └─ DivBlock .padding-global .padding-section-large
+       └─ DivBlock .container-large
+            └─ DivBlock (tag: article) .[component]_component
+                 ├─ DivBlock (tag: header) .[component]_header
+                 │    ├─ Heading .heading-style-h2 .[component]_heading
+                 │    └─ Paragraph .text-size-medium .[component]_description
+                 ├─ DivBlock (tag: figure) .[component]_image-wrapper
+                 │    └─ Image .u-image
+                 └─ DivBlock (tag: footer) .[component]_cta
+                      └─ TextLink .button .is-link
+```
+
+**Rules:**
+- All elements use `type: "DivBlock"` — set semantic tags (section, article, header, footer, figure) later in Designer
+- Section class names describe **layout pattern** not content (`section_split-image` not `section_about`)
+- Custom layout styles (flex, gap, grid) only on `_component` and below — never on section/padding/container
+- Use `<header>` for heading areas, `<footer>` for CTA areas, `<figure>` for images, `<article>` for component wrappers
+
+### Client-First Page Structure
+
+Every page must have this wrapper hierarchy before any components:
+
+```
+Body
+  └─ page-wrapper
+       ├─ Global Styles (component instance)
+       └─ main-wrapper
+            └─ [all sections go here]
+```
+
+### Sub-Agent Convention Drift
+
+Sub-agents delegated by `/build-component` consistently skip documented conventions (wrappers, semantic HTML, descriptive class names, DivBlock-only). A post-build review step is needed to catch these structural issues before publishing.
+
+### Class Naming for Reuse
+
+Section names should describe layout patterns, not content:
+- `section_split-image` — two columns, image + text
+- `section_full-bleed` — full-viewport hero with overlay
+- `section_mosaic-grid` — scattered image collage
+- `section_scroll-strip` — horizontal scrolling row
+- `section_card-grid` — cards in a grid layout
+
+This enables reuse across pages and projects. A system for comparing component maps against existing styles is needed.
+
+### Use Existing Heading Styles, Not Custom Ones
+
+Never create custom heading styles like `hero_heading` or `about_heading`. Use the existing Relume `heading-style-h1` through `heading-style-h6` classes. If a section needs overrides (different color, text-transform), add a combo class: `.heading-style-h2` + `.[section]_heading`. The combo class should ONLY contain overrides, not repeat base typography values.
+
+### Default Vertical Alignment Should Be Center
+
+Sections should use `align-items: center` by default, not `justify-content: flex-end`. The flex-end alignment was incorrectly applied because Figma's absolute positioning within fixed-height frames was translated literally. In responsive Webflow, this should almost always be center alignment. Only use flex-end when the design explicitly requires bottom-aligned content (e.g., hero with content at the bottom over a full-bleed image).
+
+### Images Need Aspect Ratios, Not Stretching
+
+Never let images stretch without constraints. Use `aspect-ratio` or percentage-based heights instead of fixed rem heights. When Figma shows a fixed-dimension image, convert to an aspect ratio (e.g., 29.5rem x 21.75rem → aspect-ratio: 29.5/21.75 ≈ 1.36/1). This prevents images from distorting at different viewports.
+
+### Designer API Cannot See Data API Assets
+
+Assets uploaded via the Data API (`upload-assets.js`) are not visible to the Designer API's `set_image_asset` action. The Designer's `asset_tool > get_all_assets_and_folders` only returns assets that existed before the Data API uploads. Workaround: set the `src` attribute directly on Image elements using the CDN URL via `element_tool > add_or_update_attribute`.
+
+### Sub-Agents Need the Full Plan Context
+
+The build-component skill delegates to sub-agents that don't read the reference docs deeply. The original implementation plan (docs/plans/) had detailed semantic HTML patterns and structural requirements that were ignored. Sub-agent prompts must include the EXACT structural pattern inline — not just references to docs they may not read. Consider embedding the 4-layer section pattern directly in sub-agent task descriptions.
+
+### Copy Verification Is Essential
+
+Some sections had wrong copy ("THIS IS SOME TEXT INSIDE OF A DIV BLOCK" placeholder, wrong restaurant names, fabricated body text). After building, always do a systematic copy check comparing every text node against the Figma reference screenshot. The component map (docs/component-maps/) captures the correct text — use it as the source of truth.
+
+### Figma Absolute Positioning ≠ Responsive Layout
+
+Figma designs use absolute positioning within fixed-size frames. Translating these literally to Webflow produces layouts that break at different viewports. Always convert Figma's fixed positions to flex/grid layouts with relative sizing (percentages, fr units, auto).
+
+### Text Wrapping and Line Breaks Matter
+
+How text wraps (which words appear on which line) is an important design detail. If Figma shows a heading on one line, Webflow must match. Check the `width` property on Figma text nodes — this is the `max-width` constraint that controls wrapping. Also check parent container widths — a narrow parent forces child text to wrap even if the text element is wide enough. Font differences between Figma and web can cause different character widths, so verify fonts are loading.
+
+### Design Decision Loop (Compare & Fix Process)
+
+When iterating on sections to match Figma, follow this 4-step hierarchy per section:
+
+1. **Figma CSS** — Extract exact CSS values from the component map or `extract-styles.js`. Apply these first. Trust the numbers.
+2. **Visual check** — Snapshot the section via `element_snapshot_tool` and compare against Figma reference. Check text wrapping, alignment, spacing, image proportions, colors, content accuracy.
+3. **Check for Figma CSS misses** — If visual doesn't match despite correct CSS, go back and extract missed properties (opacity, transforms, max-width constraints, overflow, border-radius, box-shadow).
+4. **Cross-reference Figma visually** — If CSS is correct but layout is wrong, Figma likely uses absolute positioning or manual adjustments. Convert to responsive alternatives: center instead of absolute-bottom, percentage instead of fixed-rem, aspect-ratio instead of fixed-height.
+
+This loop runs per section during the build-component iteration phase. Use `element_snapshot_tool` for quick visual checks without publishing. Only publish + Playwright for the final full-page comparison.
+
+### Complex Layouts
+
+Mosaic/collage layouts may need `nth-child` CSS via custom code injection since basic Webflow flex/grid can't handle irregular positioning. Use `/custom-code-management` for these cases.
+
 ## MCP Limitations
 
 The MCPs cannot:

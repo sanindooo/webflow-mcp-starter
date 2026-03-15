@@ -442,6 +442,8 @@ Style Guide Sync Complete:
    Reference `docs/reference/component-patterns.md` to map Figma elements
    to the correct semantic HTML tags and Client-First class names.
 
+**Important:** The component map is the source of truth for copy. During Phase 4, all text content MUST come from the component map — never fabricated or assumed. After building, Phase 4.5 verifies every text node against this map.
+
 ## Phase 4: Build (Webflow MCP)
 
 Follow the patterns in `docs/reference/component-patterns.md` exactly.
@@ -450,15 +452,40 @@ Follow the patterns in `docs/reference/component-patterns.md` exactly.
 
 Build top-down using `element_builder`. Max 3 nesting levels per call.
 
-**Every section follows the outer shell pattern:**
+**Every section follows the 4-layer pattern:**
 ```
-<section> section_<component>       ← Call 1: section > padding-global > container-xl
-  <div> padding-global
-    <div> container-xl
-      <article> <component>_component  ← Call 2: article > child elements
+DivBlock (tag: section) .section_[layout-name]     ← Call 1: section > padding > container
+  DivBlock .padding-global .padding-section-large
+    DivBlock .container-large
+      DivBlock (tag: article) .[component]_component  ← Call 2: component root > children
+        |
+        +-- DivBlock (tag: header) .[component]_header
+        |     +-- Heading .heading-style-h2 .[component]_heading
+        |     +-- Paragraph .text-size-medium
+        |
+        +-- DivBlock (tag: figure) .[component]_image-wrapper
+        |     +-- Image .u-image
+        |
+        +-- DivBlock (tag: footer) .[component]_cta
+              +-- TextLink .button .is-link
 ```
 
-**Element type:** Use `type: "DivBlock"` for all container elements. Set semantic HTML tags (section, article, nav, header, footer, figure, ul, li) via the Settings panel Tag dropdown in Webflow Designer after creation.
+**Critical rules:**
+- Use `type: "DivBlock"` for ALL elements. Set semantic tags (section, article, header, footer, figure) later in Designer
+- Section class names describe **layout pattern** not content (`section_split-image` not `section_about`)
+- Use existing Relume heading styles (`heading-style-h1` through `h6`) — add a combo class for overrides, never create custom heading styles
+- Use existing Relume text styles (`text-size-large`, `text-size-medium`, `text-size-small`) — never create custom paragraph styles
+- Custom layout properties (flex, gap, grid) only on `_component` and below — never on section/padding/container wrappers
+- Default vertical alignment: `align-items: center`. Only use `flex-end` when the design explicitly requires bottom-aligned content
+- Images must have `aspect-ratio` or percentage sizing — never fixed rem dimensions that stretch
+- Avoid fixed widths on content elements — use percentages, flex-grow, or auto
+
+**Building in element_builder (3-level limit):**
+- Call 1: DivBlock(section) > DivBlock(padding-global + padding-section-large) > DivBlock(container-large)
+- Call 2: Use container as parent → DivBlock(article/component) > child elements
+- Call 3+: Deeper nesting as needed
+
+**Element type:** Use `type: "DivBlock"` for ALL elements including sections and containers. NEVER use `type: "Section"` or `type: "Container"` — these have built-in restrictions. Set semantic HTML tags (section, article, nav, header, footer, figure, ul, li) via the Settings panel Tag dropdown in Webflow Designer after creation.
 
 **Track element IDs** returned from each call — you need them to select parent elements for subsequent calls.
 
@@ -503,6 +530,23 @@ During the build, evaluate whether additional skills are needed:
 5. After changes, inform user to commit, tag, and push if new scripts were created
 
 **Note:** `data_scripts_tool` only supports inline scripts (max 2000 chars). The skill uses a loader stub (~220 chars) that dynamically loads the jsDelivr file. See `docs/spike-results.md`.
+
+## Phase 4.5: Post-Build Review
+
+Before publishing, run a structural review to catch convention drift from sub-agents.
+
+**Checklist:**
+1. **4-layer structure** — Every section has: section wrapper > padding-global > container-large > _component
+2. **No native Section/Container types** — All elements should be Block/DivBlock
+3. **Heading styles** — All headings use `heading-style-h1` through `h6`, not custom heading styles
+4. **Text styles** — All body text uses `text-size-large/medium/small`, not custom paragraph styles
+5. **Class naming** — Section names describe layout pattern, not content
+6. **No fixed widths** — Content elements use %, flex, or auto sizing
+7. **Images** — All have aspect-ratio or percentage sizing, not fixed rem dimensions
+8. **Vertical alignment** — Default is center, not flex-end
+9. **Copy accuracy** — Compare every text node against the component map (docs/component-maps/)
+
+If any checks fail, fix before proceeding to Phase 5.
 
 ## Phase 5: Verify (Quality Gate)
 
@@ -560,72 +604,125 @@ Proceed to publish?
 4. **Generate component test** (first iteration only):
    Create `tests/visual/<component>.spec.ts` using the component name, page slug, and root selector. Follow the pattern in existing test files (capture + regression tests).
 
-## Phase 7: Compare
+## Phase 7: Compare & Fix (Design Decision Loop)
 
-1. **Read both images:**
-   - `test-results/<component>-figma-reference.png` (Figma design)
-   - `test-results/<component>-current.png` (Webflow screenshot)
+This is the core of the pipeline — a professional design decision-making process that runs **per section**. It uses a 4-step hierarchy to identify issues, determine root causes, and apply the right fix.
 
-2. **Visual comparison** — analyze these dimensions:
+### Per-Section Iteration Loop
 
-   | Dimension | What to Check |
-   |---|---|
-   | Layout | Element positions, grid/flex structure, alignment |
-   | Spacing | Margins, paddings, gaps between elements |
-   | Typography | Font size, weight, line-height, color, family |
-   | Colors | Backgrounds, borders, text colors, gradients |
-   | Content | All text present, images loaded, links correct |
-   | Responsive | Correct elements shown/hidden (mq attributes) |
+For each section on the page, run this 4-step hierarchy:
 
-3. **Generate structured diff report:**
+#### Step 1: Figma CSS (source of truth)
 
+Extract exact CSS values from the component map (`docs/component-maps/`) or via `pnpm run extract-styles <fileKey> <nodeId>`. Apply these values first. Trust the numbers.
+
+```
+Key properties to extract per element:
+- Layout: display, flex-direction, justify-content, align-items, gap
+- Spacing: padding-top/right/bottom/left, margin
+- Typography: font-family, font-size, font-weight, line-height, letter-spacing, text-transform, color
+- Dimensions: width (convert to max-width or %), height (convert to aspect-ratio)
+- Borders: border-width, border-color, border-style (all longhand)
+- Background: background-color, opacity
+```
+
+Apply via `style_tool > update_style`. Then take a snapshot:
+```
+element_snapshot_tool → capture the section
+```
+
+#### Step 2: Visual Check
+
+Compare the snapshot against the Figma reference screenshot. Check these dimensions:
+
+| Dimension | What to Check |
+|---|---|
+| **Text wrapping** | Do headings/paragraphs break on the same words? Check parent max-width constraints |
+| **Vertical alignment** | Is content centered, top-aligned, or bottom-aligned? Match the visual intent |
+| **Spacing rhythm** | Are gaps between elements consistent with Figma? |
+| **Image proportions** | Are images the right aspect ratio, not stretched? |
+| **Color accuracy** | Do backgrounds, text, and borders match? |
+| **Content accuracy** | Does every text node match the component map exactly? |
+
+#### Step 3: Check for Figma CSS Misses
+
+If the visual doesn't match despite correct CSS, go back to the Figma data and extract any missed properties:
+- `opacity` on overlay elements
+- `transform` (rotate, scale) on decorative elements
+- `border-radius` on images or containers
+- `box-shadow` or `filter` effects
+- `overflow: hidden` on containers
+- `max-width` constraints on text elements (affects line breaks)
+- `gap` values between flex children
+
+Apply the missed properties and re-snapshot.
+
+#### Step 4: Cross-Reference Figma Visually
+
+If CSS is confirmed correct but the layout still looks wrong, the Figma design likely uses:
+- **Absolute positioning** within fixed-size frames → convert to flex/grid with relative sizing
+- **Fixed heights** on sections → use `min-height` or remove entirely (let content define height)
+- **Fixed widths** on text → convert to `max-width` percentage or rem value
+- **Overlapping elements** → use CSS `position: relative` with negative margins or `z-index`
+- **Designer laziness** — sometimes Figma elements are manually positioned, not auto-layout. Use the visual intent, not the literal position.
+
+**Key principle:** Figma absolute positioning within fixed frames does NOT translate to responsive web. Always interpret through a responsive lens — center instead of absolute-bottom, percentage instead of fixed-rem, aspect-ratio instead of fixed-height.
+
+### Iteration Tracking
+
+Track each fix for each section:
+
+```
+Section: Hero
+  Iteration 1: Content aligned to bottom (flex-end)
+    - Figma CSS: space-between (nav inside hero in Figma, not in Webflow)
+    - Fix: Changed to justify-content: center
+    - Result: Centered ✓
+  Iteration 2: Heading wraps to 2 lines
+    - Figma CSS: heading width 73.5rem, parent wrapper too narrow
+    - Fix: Widened hero_content max-width to 91.5rem, text-wrapper to 100%
+    - Result: Single line ✓
+  → ACCEPTED
+```
+
+### Fix Approach Reference
+
+| Issue Type | Fix Tool | Notes |
+|---|---|---|
+| Layout/alignment | `style_tool > update_style` | justify-content, align-items, flex-direction |
+| Spacing | `style_tool > update_style` | padding-*, margin-*, gap (longhand only) |
+| Typography | `style_tool > update_style` | font-size, weight, line-height, color |
+| Text wrapping | `style_tool > update_style` | max-width on text element or parent wrapper |
+| Image proportion | `style_tool > update_style` | aspect-ratio, object-fit, width/height % |
+| Wrong text | `element_tool > set_text` | Compare against component map |
+| Missing image | `element_tool > add_or_update_attribute` | Set src to CDN URL (Designer can't see Data API assets) |
+| Element structure | `element_builder` | Add missing elements, restructure nesting |
+| Custom attributes | `element_tool > add_or_update_attribute` | data-animation-*, aria-label, mq |
+
+### Loop Control
+
+- Run the 4-step hierarchy **per section**, not per page
+- Use `element_snapshot_tool` for quick visual checks (no need to publish for every fix)
+- Only publish + Playwright capture for the **final comparison** after all sections are iterated
+- Max **5 iterations per section**. If still failing, report remaining issues to user
+- After all sections pass, proceed to Phase 8
+
+## Phase 8: Final Verification
+
+After all sections have been iterated through the design decision loop:
+
+1. **Publish** via `/safe-publish`
+2. **Wait for CDN** (poll or `sleep 15`)
+3. **Full-page Playwright capture:**
+   ```bash
+   pnpm test:capture
    ```
-   ## Visual Comparison: <component>
+4. **Side-by-side comparison** — Read both:
+   - `test-results/<component>-figma-reference.png`
+   - `test-results/<component>-current.png`
+5. **Final diff report** — any remaining issues are logged in Phase 9
 
-   ### PASS
-   - Layout structure matches (2-column with image left, content right)
-   - Content is complete (heading, paragraph, CTA all present)
-   - Image loaded correctly
-
-   ### FAIL
-   - [CRITICAL] Heading font-size is 32px, should be 48px
-   - [MODERATE] Section padding-top is 40px, should be 64px
-   - [MINOR] CTA button border-radius is 4px, should be 8px
-   ```
-
-4. **Decision:**
-   - All PASS or only MINOR issues -> **DONE**, report success
-   - CRITICAL or MODERATE issues remain -> proceed to **Phase 8: Iterate**
-   - `iteration_count >= 5` -> **STOP**, report remaining issues to user
-
-## Phase 8: Iterate (max 5 loops)
-
-Track: `iteration_count`, `fixes_applied[]`, `remaining_issues[]`
-
-For each FAIL item from the diff report:
-
-1. **Determine fix approach:**
-
-   | Issue Type | Fix With |
-   |---|---|
-   | Element structure (missing/wrong elements) | `element_builder` or `element_tool` |
-   | Style issue (spacing, color, font) | `style_tool` → `update_style` |
-   | Content issue (wrong text, missing image) | `element_tool` → `set_text`, `set_image` |
-   | Attribute issue (missing aria-label, mq) | `element_tool` → `set_attributes` |
-   | Link issue (wrong href) | `element_tool` → `set_link` |
-
-2. **Apply fixes** via the appropriate Webflow MCP tool.
-
-3. **After all fixes applied:**
-   - Re-publish via `/safe-publish`
-   - Wait for CDN (poll or `sleep 15`)
-   - Re-capture with `pnpm test:capture`
-   - Re-compare (go back to Phase 7)
-
-4. **Increment `iteration_count`**. If >= 5, stop and report.
-
-5. **Post-iteration quality re-check** (after final iteration only):
-   When `iteration_count` reaches the max or all issues are resolved, run a lightweight re-check:
+6. **Post-iteration quality re-check:**
    - Invoke `/link-checker` — verify no broken links introduced by fixes
    - Invoke `/accessibility-audit` — verify no a11y regressions
    Report any new issues in Phase 9.

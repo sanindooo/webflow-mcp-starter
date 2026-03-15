@@ -42,6 +42,8 @@ All text styles use `color` from the `color-neutral-700` variable.
 
 **Note:** 1rem (16px) minimum on mobile prevents iOS auto-zoom on input focus.
 
+**Important:** Always use these existing styles via class application — never create custom heading or text styles. If a section needs overrides (different color, text-transform), add a combo class: `.heading-style-h2` + `.[section]_heading`. The combo class should ONLY contain the override properties.
+
 ---
 
 ## Colour Variables

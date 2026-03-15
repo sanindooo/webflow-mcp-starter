@@ -71,7 +71,7 @@ class WebflowClient {
         throw lastError
       }
 
-      if (res.status === 204 || res.status === 202) return {}
+      if (res.status === 204) return {}
       return res.json()
     }
 

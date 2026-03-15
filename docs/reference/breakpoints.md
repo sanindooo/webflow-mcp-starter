@@ -31,16 +31,40 @@ Three sizes adopted from the Relume template with responsive overrides:
 | `padding-section-medium` | 5rem  | 3.5rem | 2.5rem | 2rem   |
 | `padding-section-small`  | 3rem  | 2rem   | 1.5rem | 1rem   |
 
-**Usage pattern:**
+**Usage pattern — every section follows this exact structure:**
 ```
-<section>
-  <div class="padding-global padding-section-large">   ← horizontal + vertical padding
-    <div class="container-large">                       ← max-width constraint
-      [content]
+<section> .section_[layout-name]                         ← outer section wrapper
+  <div> .padding-global .padding-section-large           ← horizontal + vertical padding
+    <div> .container-large                               ← max-width constraint
+      <article> .[component-name]_component              ← component root (layout starts here)
+        |
+        +-- <header> .[component]_header                 ← heading area
+        |     +-- <h2> .[component]_heading
+        |     +-- <p> .[component]_description
+        |
+        +-- <figure> .[component]_image-wrapper          ← image area
+        |     +-- <img> .u-image
+        |
+        +-- <footer> .[component]_cta                    ← CTA area
+              +-- <a> .button .is-link
+      </article>
     </div>
   </div>
 </section>
 ```
+
+**Building in element_builder (3-level limit):**
+```
+Call 1: DivBlock(section) > DivBlock(padding-global) > DivBlock(container-large)
+Call 2: DivBlock(article) appended inside container-large > child elements
+Call 3: Deeper nesting as needed inside the component
+```
+
+**Rules:**
+- All elements use `type: "DivBlock"` — set semantic tags (section, article, header, footer, figure) later in Designer
+- Section class names describe **layout pattern** not content (e.g., `section_split-image` not `section_about`)
+- Custom layout properties (flex, gap, grid) only go on `_component` and below — never on section/padding/container
+- Use `<header>` for heading areas, `<footer>` for CTA areas, `<figure>` for images, `<article>` for component wrappers
 
 ---
 
