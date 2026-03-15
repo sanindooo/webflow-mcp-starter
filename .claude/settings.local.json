@@ -54,7 +54,16 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(git symbolic-ref:*)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(openssl dgst:*)",
+      "mcp__webflow__data_scripts_tool",
+      "Bash(sleep:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(chmod:*)",
+      "Bash(pnpm parse-copy:*)",
+      "Bash(git status:*)"
     ]
   }
 }
