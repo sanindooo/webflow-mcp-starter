@@ -269,6 +269,25 @@ When iterating on sections to match Figma, follow this 4-step hierarchy per sect
 
 This loop runs per section during the build-component iteration phase. Use `element_snapshot_tool` for quick visual checks without publishing. Only publish + Playwright for the final full-page comparison.
 
+### Section Classification: Structured vs Editorial
+
+Not all sections are equally automatable. Classify each section before building:
+
+- **Structured components (~90% automated):** Two-column splits, card grids, hero sections, CTA banners, footers, forms. These follow predictable flex/grid patterns — the feedback loop handles the remaining ~10%.
+- **Editorial compositions (~70% automated, manual finish):** Scattered image collages, overlapping elements, rotated text, individually positioned items. The automation handles element creation, assets, fonts, colors, and basic spatial relationships. The developer finishes positioning in Webflow Designer (~5-10 minutes).
+
+**How to classify:** If Figma elements are inside auto-layout frames → structured. If elements float independently with absolute positions → editorial.
+
+### Layout Tools Hierarchy
+
+Professional designers combine multiple CSS tools to achieve precise layouts. Use them in priority order:
+
+1. **Layout systems first** — `flex`, `grid`, `align-self`, `gap`, `nth-child` CSS
+2. **Spacing adjustments** — `margin`, `padding` to fine-tune when layout alone isn't enough
+3. **Positioning last** — `position: relative` with offsets only when flex+margins can't solve it
+
+These tools should be COMBINED — e.g., left column `align-self: flex-end` + right image `align-self: flex-start` achieves a staggered layout without hacks. Don't blindly override Figma alignment values — if Figma says `flex-end`, check the visual first. Content may genuinely need to be bottom-aligned with deliberate empty space above.
+
 ### Complex Layouts
 
 Mosaic/collage layouts may need `nth-child` CSS via custom code injection since basic Webflow flex/grid can't handle irregular positioning. Use `/custom-code-management` for these cases.

@@ -60,6 +60,12 @@ Call 2: DivBlock(article) appended inside container-large > child elements
 Call 3: Deeper nesting as needed inside the component
 ```
 
+**Paragraph styling strategy:**
+- Do NOT add classes directly to `<p>` tags — this adds bloat and overrides global paragraph styles
+- Instead, wrap paragraphs in a `DivBlock` with the styling class (e.g., `about_body`)
+- Use text utility classes (`text-size-small`, `text-size-large`) on the wrapper div for size overrides
+- This keeps global `<p>` styles clean and lets each paragraph inherit naturally
+
 **Rules:**
 - All elements use `type: "DivBlock"` — set semantic tags (section, article, header, footer, figure) later in Designer
 - Section class names describe **layout pattern** not content (e.g., `section_split-image` not `section_about`)
@@ -86,6 +92,33 @@ All containers use `margin-left: auto; margin-right: auto` for centering.
 See `style-guide.md` for per-heading breakpoint values.
 
 General principle: headings scale down ~75-80% at tablet, ~50-60% at mobile. Body text stays at 1rem minimum on mobile to prevent iOS auto-zoom on input focus.
+
+### Fluid Typography with CSS `clamp()`
+
+For large headings or text that needs to scale smoothly between breakpoints (especially on mobile), use CSS `clamp()` instead of fixed breakpoint overrides. This prevents awkward text wrapping at in-between viewport sizes.
+
+**Generator tool:** https://clamp.font-size.app/
+
+**When to use:**
+- Large headings (h1/h2) that wrap differently at various widths
+- Mobile breakpoints where fixed steps create jarring size jumps
+- Any text where line breaks are important to the design
+
+**When NOT to use:**
+- Body text at standard sizes (1rem) — fixed sizes are fine
+- Desktop-only text that doesn't change across breakpoints
+
+**Example:**
+```css
+/* Instead of: */
+font-size: 5.625rem;  /* desktop */
+/* @media (max-width: 478px) { font-size: 2.5rem; } */
+
+/* Use: */
+font-size: clamp(2.5rem, 1.5rem + 5vw, 5.625rem);
+```
+
+**In Webflow:** Apply `clamp()` via custom CSS (either inline style or via `/custom-code-management`) since Webflow's style panel doesn't support `clamp()` natively. Alternatively, set the base size in the style panel and use clamp via a custom attribute `style="font-size: clamp(...)"` for specific elements.
 
 ---
 

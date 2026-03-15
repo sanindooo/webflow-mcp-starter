@@ -448,6 +448,31 @@ Style Guide Sync Complete:
 
 Follow the patterns in `docs/reference/component-patterns.md` exactly.
 
+### 4.0 Section Classification
+
+Before building each section, classify it to set the right expectations:
+
+**Structured components** (automatable to ~90%):
+- Two-column splits (image + text)
+- Card grids
+- Simple hero sections
+- CTA banners
+- Footers with link lists
+- Forms with stacked fields
+
+These follow predictable flex/grid patterns. The feedback loop (Phase 7) can handle the remaining ~10%.
+
+**Editorial compositions** (automatable to ~70%, manual finish):
+- Scattered/collage image layouts
+- Overlapping elements with absolute positioning in Figma
+- Sections where elements are individually placed, not in a container
+- Rotated or transformed text
+- Mosaic grids with irregular sizing
+
+For these, the automation handles the tedious work (creating elements, uploading images, applying borders/fonts/colors, setting content) and gets the basic spatial relationships right. The developer finishes the positioning in Webflow Designer (~5-10 minutes). This is honest and efficient — don't fight the tool to achieve the last 30% when a human can do it in minutes.
+
+**How to classify:** Look at the Figma layer structure. If elements are inside auto-layout frames → structured. If elements are floating independently with absolute positions → editorial.
+
 ### 4.1 Create Element Structure
 
 Build top-down using `element_builder`. Max 3 nesting levels per call.
@@ -461,7 +486,8 @@ DivBlock (tag: section) .section_[layout-name]     ← Call 1: section > padding
         |
         +-- DivBlock (tag: header) .[component]_header
         |     +-- Heading .heading-style-h2 .[component]_heading
-        |     +-- Paragraph .text-size-medium
+        |     +-- DivBlock .[component]_body        ← wrap paragraphs in a div, not class on <p>
+        |           +-- Paragraph (no class)         ← inherits global <p> styles
         |
         +-- DivBlock (tag: figure) .[component]_image-wrapper
         |     +-- Image .u-image
@@ -475,6 +501,7 @@ DivBlock (tag: section) .section_[layout-name]     ← Call 1: section > padding
 - Section class names describe **layout pattern** not content (`section_split-image` not `section_about`)
 - Use existing Relume heading styles (`heading-style-h1` through `h6`) — add a combo class for overrides, never create custom heading styles
 - Use existing Relume text styles (`text-size-large`, `text-size-medium`, `text-size-small`) — never create custom paragraph styles
+- Do NOT add classes directly to `<p>` tags — wrap paragraphs in a DivBlock with the styling class instead. This keeps global `<p>` styles clean and reduces class bloat.
 - Custom layout properties (flex, gap, grid) only on `_component` and below — never on section/padding/container wrappers
 - Default vertical alignment: `align-items: center`. Only use `flex-end` when the design explicitly requires bottom-aligned content
 - Images must have `aspect-ratio` or percentage sizing — never fixed rem dimensions that stretch
@@ -631,18 +658,33 @@ Apply via `style_tool > update_style`. Then take a snapshot:
 element_snapshot_tool → capture the section
 ```
 
-#### Step 2: Visual Check
+#### Step 2: Visual Check (must be systematic, not superficial)
 
-Compare the snapshot against the Figma reference screenshot. Check these dimensions:
+Compare the snapshot against the Figma reference screenshot. For EACH element, check these spatial relationships:
+
+1. **Top edge** — Where does the element sit relative to the TOP of its parent? (flush, offset, centered, bottom-aligned with empty space above)
+2. **Left edge** — Where does it sit relative to the LEFT? (flush, padded, centered)
+3. **Sibling spacing** — How much space between this element and its neighbors?
+4. **Proportion** — What % of its parent does it occupy? (don't assume 100% — a 29.5rem image in a 45.25rem column is ~65%, not full width)
+5. **Deliberate empty space** — Is there intentional whitespace? Don't collapse it.
 
 | Dimension | What to Check |
 |---|---|
 | **Text wrapping** | Do headings/paragraphs break on the same words? Check parent max-width constraints |
-| **Vertical alignment** | Is content centered, top-aligned, or bottom-aligned? Match the visual intent |
+| **Vertical alignment** | Match the VISUAL INTENT — if Figma shows content at the bottom with empty space above, use flex-end. Don't blindly default to center. |
+| **Per-child alignment** | Check each child's alignment individually — one column may need `align-self: flex-start` while another needs `align-self: flex-end` |
 | **Spacing rhythm** | Are gaps between elements consistent with Figma? |
-| **Image proportions** | Are images the right aspect ratio, not stretched? |
+| **Image proportions** | Are images the right aspect ratio AND the right SIZE relative to their parent (not just stretched to 100%)? |
 | **Color accuracy** | Do backgrounds, text, and borders match? |
 | **Content accuracy** | Does every text node match the component map exactly? |
+
+**Layout tools hierarchy** — when fixing alignment issues, use these tools in priority order:
+
+1. **Layout systems first** — `flex`, `grid`, `justify-content`, `align-items`, `align-self`, `gap`
+2. **Spacing adjustments** — `margin`, `padding` to fine-tune positioning when layout alone doesn't achieve the visual
+3. **Positioning last** — `position: relative` with offsets only when flex+margins can't solve it
+
+These can be COMBINED. Example: left column `align-self: flex-end` (layout) + right image `align-self: flex-start` (layout) achieves the staggered offset between columns without any hacks.
 
 #### Step 3: Check for Figma CSS Misses
 
@@ -654,8 +696,16 @@ If the visual doesn't match despite correct CSS, go back to the Figma data and e
 - `overflow: hidden` on containers
 - `max-width` constraints on text elements (affects line breaks)
 - `gap` values between flex children
+- `align-self` on individual children (one column may need flex-start while another needs flex-end)
 
 Apply the missed properties and re-snapshot.
+
+**Text wrapping fix:** If a heading wraps differently due to condensed fonts not loading, consider:
+1. Adjusting `max-width` on the text or parent container
+2. Using CSS `clamp()` for fluid font sizing: `font-size: clamp(min, preferred, max)`
+   - Generator: https://clamp.font-size.app/
+   - Best for large headings and mobile breakpoints where fixed steps create jarring jumps
+   - Apply via custom attribute `style="font-size: clamp(...)"` since Webflow doesn't support clamp natively
 
 #### Step 4: Cross-Reference Figma Visually
 
